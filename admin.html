@@ -269,6 +269,10 @@ async function processUploadedPDFs() {
                     .replace(/gold/ig, '')
                     .replace(/orange/ig, '')
                     .replace(/black/ig, '')
+                    .replace(/red and orange/ig, '')
+                    .replace(/purple and blue/ig, '')
+                    .replace(/green and blue/ig, '')
+                    .replace(/gold and green/ig, '')
                     .replace(/red/ig, '')
                     .replace(/and/ig, '')
                     .trim()
@@ -288,7 +292,14 @@ async function processUploadedPDFs() {
             let checklistCount = 25;
             let cleanVariant = getParentSubsetName(variantName.split('(')[0]);
 
-            if (cleanVariant.includes("base")) {
+            const exactBaseNames = [
+                "base",
+                "baserainbow",
+                "basepixelburst",
+                "baselightburst"
+            ];
+
+            if (exactBaseNames.some(x => cleanVariant.startsWith(x))) {
                 groupType = "BASE";
                 checklistCount = 300;
             } else {
