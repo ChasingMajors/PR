@@ -6,8 +6,9 @@
   <title>Chasing Majors - Automated Print Run Factory</title>
   <style>
     body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; padding: 40px; }
-    .container { max-width: 900px; margin: 0 auto; background: #1e293b; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+    .container { max-width: 1050px; margin: 0 auto; background: #1e293b; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
     h1 { color: #38bdf8; font-size: 24px; margin-bottom: 20px; border-bottom: 2px solid #334155; padding-bottom: 10px; }
+    h2 { color:#e2e8f0; font-size:18px; margin:28px 0 10px; }
     p { font-size: 14px; color: #94a3b8; margin-bottom: 25px; line-height: 1.6; }
     .upload-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; }
     .upload-box { background: #0f172a; border: 2px dashed #475569; border-radius: 8px; padding: 30px 15px; text-align: center; cursor: pointer; transition: border-color 0.2s; }
@@ -16,24 +17,26 @@
     .upload-box .icon { font-size: 24px; margin-bottom: 8px; display: block; }
     .upload-box .label { font-size: 14px; font-weight: 600; color: #cbd5e1; }
     .upload-box .filename { font-size: 12px; color: #10b981; margin-top: 8px; display: none; font-weight: bold; word-break: break-all; }
-    button { width: 100%; background: #0284c7; color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
+    .note { background:#0f172a; border:1px solid #334155; padding:12px; border-radius:8px; color:#cbd5e1; font-size:13px; margin-bottom:20px; line-height:1.5; }
+    .anchor-grid { display:grid; grid-template-columns: 2.2fr 1fr 1fr; gap:10px; margin-bottom:10px; align-items:center; }
+    .anchor-grid.header { color:#94a3b8; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; margin-bottom:6px; }
+    input { width:100%; box-sizing:border-box; background:#0f172a; color:#f8fafc; border:1px solid #475569; padding:10px; border-radius:6px; font-size:14px; }
+    input::placeholder { color:#64748b; }
+    button { width: 100%; background: #0284c7; color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: background 0.2s; margin-top:20px; }
     button:hover { background: #0369a1; }
     button:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
     .status-box { margin-top: 20px; padding: 15px; background: #0f172a; border-left: 4px solid #38bdf8; border-radius: 4px; display: none; font-size: 14px; line-height: 1.6; white-space: pre-line; }
     .download-btn { display: block; text-align: center; margin-top: 20px; background: #10b981; color: white; padding: 14px; text-decoration: none; font-weight: bold; border-radius: 6px; transition: background 0.2s; }
     .download-btn:hover { background: #059669; }
-    pre { background:#020617; color:#e2e8f0; padding:15px; border-radius:8px; max-height:430px; overflow:auto; font-size:12px; white-space:pre-wrap; }
-    .note { background:#0f172a; border:1px solid #334155; padding:12px; border-radius:8px; color:#cbd5e1; font-size:13px; margin-bottom:20px; }
+    pre { background:#020617; color:#e2e8f0; padding:15px; border-radius:8px; max-height:460px; overflow:auto; font-size:12px; white-space:pre-wrap; }
+    code { color:#bae6fd; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
 </head>
 <body>
 <div class="container">
   <h1>Chasing Majors - Automated Print Run Factory</h1>
-  <p>Upload Checklist and Pack Odds PDFs. The factory calculates print runs using Total Packs ÷ Pack Odds ÷ Checklist Subset Size.</p>
-  <div class="note">
-    Total Packs Printed is auto-inferred from known serial-numbered parallel patterns in the odds PDF.
-  </div>
+  <p>Upload the Checklist PDF and Pack Odds PDF. Then enter up to 5 known serial anchors. The factory uses those anchors to calculate an aggregate total-pack estimate, then applies that estimate to every odds row.</p>
 
   <div class="upload-row">
     <div class="upload-box" onclick="document.getElementById('checklistFile').click()">
@@ -47,6 +50,47 @@
       <span class="label">Upload Pack Odds PDF</span>
       <div id="oddsName" class="filename"></div>
       <input type="file" id="oddsFile" accept=".pdf" onchange="handleFileSelect('oddsFile', 'oddsName')">
+    </div>
+  </div>
+
+  <h2>Known Serial Anchors</h2>
+  <div class="note">
+    Enter the exact or close variant name from the odds PDF, plus its checklist size and serial number.
+    Example: <code>Base Pixel Burst Blue</code> + <code>300</code> + <code>149</code>.
+    The engine finds that row’s odds ratio from the odds PDF and calculates <code>T = Checklist Size × Serial Number × Pack Ratio</code>.
+  </div>
+
+  <div class="anchor-grid header">
+    <div>Variant name from odds PDF</div>
+    <div>Checklist size</div>
+    <div>Serial number</div>
+  </div>
+
+  <div id="anchorRows">
+    <div class="anchor-grid">
+      <input id="anchorName1" placeholder="Base Pixel Burst Blue">
+      <input id="anchorSize1" type="number" min="1" placeholder="300">
+      <input id="anchorSerial1" type="number" min="1" placeholder="149">
+    </div>
+    <div class="anchor-grid">
+      <input id="anchorName2" placeholder="Base Pixel Burst Purple">
+      <input id="anchorSize2" type="number" min="1" placeholder="300">
+      <input id="anchorSerial2" type="number" min="1" placeholder="99">
+    </div>
+    <div class="anchor-grid">
+      <input id="anchorName3" placeholder="Base Pixel Burst Green">
+      <input id="anchorSize3" type="number" min="1" placeholder="300">
+      <input id="anchorSerial3" type="number" min="1" placeholder="75">
+    </div>
+    <div class="anchor-grid">
+      <input id="anchorName4" placeholder="Base Pixel Burst Gold">
+      <input id="anchorSize4" type="number" min="1" placeholder="300">
+      <input id="anchorSerial4" type="number" min="1" placeholder="50">
+    </div>
+    <div class="anchor-grid">
+      <input id="anchorName5" placeholder="Base Pixel Burst Orange">
+      <input id="anchorSize5" type="number" min="1" placeholder="300">
+      <input id="anchorSerial5" type="number" min="1" placeholder="25">
     </div>
   </div>
 
@@ -64,9 +108,6 @@
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
-
-// Total packs are inferred automatically from known serial-numbered parallel anchors.
-let TOTAL_PACKS_PRINTED = 0;
 
 let generatedCsvData = "";
 let generatedDebugData = "";
@@ -135,6 +176,36 @@ function csvEscape(val) {
   if (val === null || val === undefined) return "";
   const s = String(val);
   return `"${s.replace(/"/g, '""')}"`;
+}
+
+function median(values) {
+  const nums = values.filter(n => Number.isFinite(n) && n > 0).sort((a, b) => a - b);
+  if (!nums.length) return 0;
+  const mid = Math.floor(nums.length / 2);
+  return nums.length % 2 ? nums[mid] : Math.round((nums[mid - 1] + nums[mid]) / 2);
+}
+
+function average(values) {
+  const nums = values.filter(n => Number.isFinite(n) && n > 0);
+  if (!nums.length) return 0;
+  return Math.round(nums.reduce((a,b) => a + b, 0) / nums.length);
+}
+
+function aggregatePackEstimate(samples) {
+  const values = samples.map(s => s.totalPacks);
+  const rawMedian = median(values);
+
+  // Keep the tool stable if one anchor is mistyped.
+  const filtered = rawMedian
+    ? samples.filter(s => s.totalPacks >= rawMedian * 0.65 && s.totalPacks <= rawMedian * 1.35)
+    : samples;
+
+  const used = filtered.length >= 2 ? filtered : samples;
+  return {
+    totalPacks: average(used.map(s => s.totalPacks)),
+    used,
+    excluded: samples.filter(s => !used.includes(s))
+  };
 }
 
 function isCategoryLine(line) {
@@ -322,92 +393,44 @@ function findParentSubset(variantName, checklistMap) {
   return null;
 }
 
+function getManualAnchors() {
+  const anchors = [];
 
+  for (let i = 1; i <= 5; i++) {
+    const name = document.getElementById(`anchorName${i}`).value.trim();
+    const checklistSize = parseInt(document.getElementById(`anchorSize${i}`).value, 10);
+    const serialNumber = parseInt(document.getElementById(`anchorSerial${i}`).value, 10);
 
-function detectKnownSerial(variantName) {
-  const v = String(variantName || "").toLowerCase();
+    if (!name && !checklistSize && !serialNumber) continue;
 
-  // Explicit slash notation if the PDF includes it.
-  const slash = v.match(/\/\s*(\d+)/);
-  if (slash) return { serial: parseInt(slash[1], 10), source: "explicit /###" };
-
-  // Known serial ladder assumptions used only to infer T.
-  // Edit here as new products use different ladders.
-  const comboRules = [
-    [/rainbow green and blue/, 249],
-    [/rainbow red and orange/, 249],
-    [/rainbow gold and green/, 199],
-    [/rainbow purple and blue/, 199],
-    [/rainbow blue and yellow/, 199],
-    [/rainbow teal/, 99],
-    [/rainbow yellow/, 99]
-  ];
-
-  for (const [re, serial] of comboRules) {
-    if (re.test(v)) return { serial, source: "known combo ladder" };
-  }
-
-  const colorRules = [
-    [/\bplatinum\b/, 1],
-    [/\bred\b/, 5],
-    [/\bblack\b/, 10],
-    [/\borange\b/, 25],
-    [/\bgold\b/, 50],
-    [/\bgreen\b/, 75],
-    [/\bpurple\b/, 99],
-    [/\bblue\b/, 149]
-  ];
-
-  for (const [re, serial] of colorRules) {
-    if (re.test(v)) return { serial, source: "known color ladder" };
-  }
-
-  return null;
-}
-
-function median(values) {
-  const nums = values.filter(n => Number.isFinite(n) && n > 0).sort((a, b) => a - b);
-  if (!nums.length) return 0;
-  const mid = Math.floor(nums.length / 2);
-  return nums.length % 2 ? nums[mid] : Math.round((nums[mid - 1] + nums[mid]) / 2);
-}
-
-function inferTotalPacksFromSerialAnchors(oddsRows, checklistMap) {
-  const samples = [];
-
-  oddsRows.forEach(row => {
-    const parent = findParentSubset(row.variantName, checklistMap);
-    const serialInfo = detectKnownSerial(row.variantName);
-
-    if (!parent || !serialInfo || !serialInfo.serial || !row.firstPackRatio || !parent.size) return;
-
-    const sampleT = serialInfo.serial * parent.size * row.firstPackRatio;
-
-    samples.push({
-      variantName: row.variantName,
-      parentName: parent.name,
-      checklistSize: parent.size,
-      serial: serialInfo.serial,
-      ratio: row.firstPackRatio,
-      totalPacks: sampleT,
-      source: serialInfo.source
+    anchors.push({
+      row: i,
+      name,
+      key: cleanKey(name),
+      checklistSize,
+      serialNumber,
+      valid: !!name && Number.isFinite(checklistSize) && checklistSize > 0 && Number.isFinite(serialNumber) && serialNumber > 0
     });
-  });
+  }
 
-  const rawMedian = median(samples.map(s => s.totalPacks));
-
-  // Filter out obvious OCR / wrong-ladder outliers.
-  const filtered = rawMedian
-    ? samples.filter(s => s.totalPacks >= rawMedian * 0.45 && s.totalPacks <= rawMedian * 2.2)
-    : samples;
-
-  return {
-    totalPacks: median(filtered.map(s => s.totalPacks)) || rawMedian,
-    samples,
-    filtered
-  };
+  return anchors;
 }
 
+function findOddsForAnchor(anchor, oddsRows) {
+  const anchorKey = cleanKey(anchor.name);
+  let best = null;
+
+  for (const row of oddsRows) {
+    const oddsKey = cleanKey(row.variantName);
+    if (oddsKey === anchorKey) return row;
+
+    if (!best && (oddsKey.includes(anchorKey) || anchorKey.includes(oddsKey))) {
+      best = row;
+    }
+  }
+
+  return best;
+}
 
 async function processUploadedPDFs() {
   const checkFile = document.getElementById('checklistFile').files[0];
@@ -436,40 +459,74 @@ async function processUploadedPDFs() {
     status.innerHTML = "🔄 Reading odds PDF...";
     const oddsText = await readPdfText(oddsFile);
 
-    status.innerHTML = "🧮 Calculating print runs...";
+    status.innerHTML = "🧮 Calculating aggregate total packs from anchors...";
 
     productName = (checkFile.name || "Product").replace(/\.pdf$/i, "").replace(/[_-]/g, " ");
 
     const parsedChecklist = parseChecklist(checklistText);
     const checklistMap = parsedChecklist.map;
     const oddsRows = parseOddsRows(oddsText);
-
-    const inferred = inferTotalPacksFromSerialAnchors(oddsRows, checklistMap);
-    TOTAL_PACKS_PRINTED = inferred.totalPacks;
+    const manualAnchors = getManualAnchors();
 
     const debugLog = [
       "=== PRINT RUN BLUEPRINT ===",
-      `T = Total Packs Printed = auto-inferred from serial-numbered parallel anchors`,
-      "R = Pack Ratio from odds PDF",
-      "C = Checklist Subset Size from checklist PDF",
-      "Total Set Production = T / R",
-      "Print Run Per Card = Total Set Production / C",
-      
+      "Anchor T = Checklist Size × Serial Number × Pack Ratio",
+      "Aggregate T = average of valid anchor T values, after simple outlier filtering",
+      "Total Set Production = Aggregate T / Pack Ratio",
+      "Print Run Per Card = Total Set Production / Parsed Checklist Subset Size",
+      "",
       "=== CHECKLIST COUNTS ===",
       ...parsedChecklist.debug,
       "",
-      "",
-      "=== SERIAL ANCHOR PACK ESTIMATE ===",
-      `Estimated T: ${TOTAL_PACKS_PRINTED ? TOTAL_PACKS_PRINTED.toLocaleString() : "Unable to infer"}`,
-      `Anchor samples found: ${inferred.samples.length}`,
-      `Anchor samples used: ${inferred.filtered.length}`,
-      ...inferred.samples.slice(0, 40).map(s => `[ANCHOR] ${s.variantName} -> ${s.parentName}; C=${s.checklistSize}; /${s.serial}; R=1:${s.ratio}; T=${s.totalPacks.toLocaleString()} (${s.source})`),
-      "",
-      "=== ODDS ROW MATCHES ==="
+      "=== MANUAL SERIAL ANCHORS ==="
     ];
 
+    const anchorSamples = [];
+
+    manualAnchors.forEach(anchor => {
+      if (!anchor.valid) {
+        debugLog.push(`[ANCHOR ${anchor.row}] Invalid/incomplete entry`);
+        return;
+      }
+
+      const oddsRow = findOddsForAnchor(anchor, oddsRows);
+
+      if (!oddsRow) {
+        debugLog.push(`[ANCHOR ${anchor.row}] ${anchor.name} -> no odds row found`);
+        return;
+      }
+
+      const sampleT = anchor.checklistSize * anchor.serialNumber * oddsRow.firstPackRatio;
+
+      anchorSamples.push({
+        ...anchor,
+        oddsVariantName: oddsRow.variantName,
+        packRatio: oddsRow.firstPackRatio,
+        totalPacks: sampleT
+      });
+
+      debugLog.push(`[ANCHOR ${anchor.row}] ${anchor.name} -> matched "${oddsRow.variantName}"; C=${anchor.checklistSize}; serial=${anchor.serialNumber}; R=1:${oddsRow.firstPackRatio}; T=${sampleT.toLocaleString()}`);
+    });
+
+    const aggregate = aggregatePackEstimate(anchorSamples);
+    const totalPacksPrinted = aggregate.totalPacks;
+
+    debugLog.push("");
+    debugLog.push("=== AGGREGATE TOTAL PACKS ===");
+    debugLog.push(`Valid anchor samples: ${anchorSamples.length}`);
+    debugLog.push(`Used in aggregate: ${aggregate.used.length}`);
+    debugLog.push(`Excluded as outliers: ${aggregate.excluded.length}`);
+    debugLog.push(`Aggregate T: ${totalPacksPrinted ? totalPacksPrinted.toLocaleString() : "Unable to calculate"}`);
+
+    if (!totalPacksPrinted) {
+      throw new Error("Unable to calculate total packs. Add at least one valid anchor with a variant name that exists in the odds PDF.");
+    }
+
+    debugLog.push("");
+    debugLog.push("=== ODDS ROW MATCHES ===");
+
     const csvRows = [
-      ["Product Name", "Product Group Type", "Card Variant Type/Name", "Parent Checklist", "Checklist Subset Size (C)", "Total Packs Printed (T)", "Pack Odds Used (R)", "Total Set Production (T/R)", "Calculated Print Run Per Card", "Calc Source"]
+      ["Product Name", "Product Group Type", "Card Variant Type/Name", "Parent Checklist", "Checklist Subset Size (C)", "Aggregate Total Packs (T)", "Pack Odds Used (R)", "Total Set Production (T/R)", "Calculated Print Run Per Card", "Calc Source"]
     ];
 
     oddsRows.forEach(row => {
@@ -483,23 +540,13 @@ async function processUploadedPDFs() {
       const checklistCount = parent.size;
       const groupType = parent.group;
       const parentName = parent.name;
-      const serialInfo = detectKnownSerial(row.variantName);
-      let totalSetProduction = 0;
-      let calculatedPrintRun = 0;
-      let calcSource = "inferred T/R/C odds calculation";
+      const totalSetProduction = Math.round(totalPacksPrinted / row.firstPackRatio);
+      const calculatedPrintRun = Math.round(totalSetProduction / checklistCount);
 
-      if (serialInfo && serialInfo.serial) {
-        calculatedPrintRun = serialInfo.serial;
-        totalSetProduction = serialInfo.serial * checklistCount;
-        calcSource = `serial anchor (${serialInfo.source})`;
-      } else if (TOTAL_PACKS_PRINTED) {
-        totalSetProduction = Math.round(TOTAL_PACKS_PRINTED / row.firstPackRatio);
-        calculatedPrintRun = Math.round(totalSetProduction / checklistCount);
-      } else {
-        calcSource = "unable to infer T";
-      }
+      const anchorMatch = anchorSamples.find(a => cleanKey(a.oddsVariantName) === cleanKey(row.variantName));
+      const calcSource = anchorMatch ? "manual serial anchor used for T" : "aggregate T/R/C calculation";
 
-      debugLog.push(`[MATCH] ${row.variantName} -> ${parentName} -> C=${checklistCount}; R=1:${row.firstPackRatio}; Set=${totalSetProduction ? totalSetProduction.toLocaleString() : "N/A"}; PR/card=${calculatedPrintRun ? calculatedPrintRun.toLocaleString() : "N/A"} (${calcSource})`);
+      debugLog.push(`[MATCH] ${row.variantName} -> ${parentName}; C=${checklistCount}; R=1:${row.firstPackRatio}; Set=${totalSetProduction.toLocaleString()}; PR/card=${calculatedPrintRun.toLocaleString()} (${calcSource})`);
 
       csvRows.push([
         productName,
@@ -507,7 +554,7 @@ async function processUploadedPDFs() {
         row.variantName,
         parentName,
         checklistCount,
-        TOTAL_PACKS_PRINTED || "",
+        totalPacksPrinted,
         `1:${row.firstPackRatio}`,
         totalSetProduction,
         calculatedPrintRun,
@@ -524,7 +571,7 @@ async function processUploadedPDFs() {
     debugArea.style.display = "block";
     debugOutput.textContent = debugText;
 
-    status.innerHTML = `✅ Analysis complete.\nChecklist subsets detected: ${Object.keys(checklistMap).length}\nOdds rows parsed: ${oddsRows.length}\nAuto-inferred T: ${TOTAL_PACKS_PRINTED ? TOTAL_PACKS_PRINTED.toLocaleString() : "unable to infer"} packs`;
+    status.innerHTML = `✅ Analysis complete.\nChecklist subsets detected: ${Object.keys(checklistMap).length}\nOdds rows parsed: ${oddsRows.length}\nValid anchors: ${anchorSamples.length}\nAggregate total packs: ${totalPacksPrinted.toLocaleString()}`;
     downloadArea.innerHTML = `
       <button onclick="downloadCSV()" class="download-btn" style="width:100%; border:none; cursor:pointer;">📥 DOWNLOAD PRINT RUN CSV</button>
       <button onclick="downloadDebug()" class="download-btn" style="width:100%; border:none; cursor:pointer; background:#64748b;">🧪 DOWNLOAD DEBUG TXT</button>
