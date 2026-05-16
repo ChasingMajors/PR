@@ -30,9 +30,9 @@
 <body>
 <div class="container">
   <h1>Chasing Majors - Automated Print Run Factory</h1>
-  <p>Upload Checklist and Pack Odds PDFs. The factory calculates print runs using Total Packs × Pack Odds × Checklist Subset Size.</p>
+  <p>Upload Checklist and Pack Odds PDFs. The factory calculates print runs using Total Packs ÷ Pack Odds ÷ Checklist Subset Size.</p>
   <div class="note">
-    Current hidden Total Packs Printed constant: <b>7,627,500</b>. Change <code>TOTAL_PACKS_PRINTED</code> in the code when your product estimate changes.
+    Total Packs Printed is auto-inferred from known serial-numbered parallel patterns in the odds PDF.
   </div>
 
   <div class="upload-row">
@@ -65,8 +65,8 @@
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
-// CHANGE THIS CONSTANT WHEN YOU HAVE A DIFFERENT PRODUCT TOTAL PACK ESTIMATE.
-const TOTAL_PACKS_PRINTED = 7627500;
+// Total packs are inferred automatically from known serial-numbered parallel anchors.
+let TOTAL_PACKS_PRINTED = 0;
 
 let generatedCsvData = "";
 let generatedDebugData = "";
@@ -322,10 +322,92 @@ function findParentSubset(variantName, checklistMap) {
   return null;
 }
 
-function detectExplicitSerial(variantName) {
-  const m = String(variantName || "").match(/\/\s*(\d+)/);
-  return m ? parseInt(m[1], 10) : null;
+
+
+function detectKnownSerial(variantName) {
+  const v = String(variantName || "").toLowerCase();
+
+  // Explicit slash notation if the PDF includes it.
+  const slash = v.match(/\/\s*(\d+)/);
+  if (slash) return { serial: parseInt(slash[1], 10), source: "explicit /###" };
+
+  // Known serial ladder assumptions used only to infer T.
+  // Edit here as new products use different ladders.
+  const comboRules = [
+    [/rainbow green and blue/, 249],
+    [/rainbow red and orange/, 249],
+    [/rainbow gold and green/, 199],
+    [/rainbow purple and blue/, 199],
+    [/rainbow blue and yellow/, 199],
+    [/rainbow teal/, 99],
+    [/rainbow yellow/, 99]
+  ];
+
+  for (const [re, serial] of comboRules) {
+    if (re.test(v)) return { serial, source: "known combo ladder" };
+  }
+
+  const colorRules = [
+    [/\bplatinum\b/, 1],
+    [/\bred\b/, 5],
+    [/\bblack\b/, 10],
+    [/\borange\b/, 25],
+    [/\bgold\b/, 50],
+    [/\bgreen\b/, 75],
+    [/\bpurple\b/, 99],
+    [/\bblue\b/, 149]
+  ];
+
+  for (const [re, serial] of colorRules) {
+    if (re.test(v)) return { serial, source: "known color ladder" };
+  }
+
+  return null;
 }
+
+function median(values) {
+  const nums = values.filter(n => Number.isFinite(n) && n > 0).sort((a, b) => a - b);
+  if (!nums.length) return 0;
+  const mid = Math.floor(nums.length / 2);
+  return nums.length % 2 ? nums[mid] : Math.round((nums[mid - 1] + nums[mid]) / 2);
+}
+
+function inferTotalPacksFromSerialAnchors(oddsRows, checklistMap) {
+  const samples = [];
+
+  oddsRows.forEach(row => {
+    const parent = findParentSubset(row.variantName, checklistMap);
+    const serialInfo = detectKnownSerial(row.variantName);
+
+    if (!parent || !serialInfo || !serialInfo.serial || !row.firstPackRatio || !parent.size) return;
+
+    const sampleT = serialInfo.serial * parent.size * row.firstPackRatio;
+
+    samples.push({
+      variantName: row.variantName,
+      parentName: parent.name,
+      checklistSize: parent.size,
+      serial: serialInfo.serial,
+      ratio: row.firstPackRatio,
+      totalPacks: sampleT,
+      source: serialInfo.source
+    });
+  });
+
+  const rawMedian = median(samples.map(s => s.totalPacks));
+
+  // Filter out obvious OCR / wrong-ladder outliers.
+  const filtered = rawMedian
+    ? samples.filter(s => s.totalPacks >= rawMedian * 0.45 && s.totalPacks <= rawMedian * 2.2)
+    : samples;
+
+  return {
+    totalPacks: median(filtered.map(s => s.totalPacks)) || rawMedian,
+    samples,
+    filtered
+  };
+}
+
 
 async function processUploadedPDFs() {
   const checkFile = document.getElementById('checklistFile').files[0];
@@ -362,17 +444,26 @@ async function processUploadedPDFs() {
     const checklistMap = parsedChecklist.map;
     const oddsRows = parseOddsRows(oddsText);
 
+    const inferred = inferTotalPacksFromSerialAnchors(oddsRows, checklistMap);
+    TOTAL_PACKS_PRINTED = inferred.totalPacks;
+
     const debugLog = [
       "=== PRINT RUN BLUEPRINT ===",
-      `T = Total Packs Printed = ${TOTAL_PACKS_PRINTED.toLocaleString()}`,
+      `T = Total Packs Printed = auto-inferred from serial-numbered parallel anchors`,
       "R = Pack Ratio from odds PDF",
       "C = Checklist Subset Size from checklist PDF",
       "Total Set Production = T / R",
       "Print Run Per Card = Total Set Production / C",
-      "Explicit /### serial notation bypasses odds math.",
-      "",
+      
       "=== CHECKLIST COUNTS ===",
       ...parsedChecklist.debug,
+      "",
+      "",
+      "=== SERIAL ANCHOR PACK ESTIMATE ===",
+      `Estimated T: ${TOTAL_PACKS_PRINTED ? TOTAL_PACKS_PRINTED.toLocaleString() : "Unable to infer"}`,
+      `Anchor samples found: ${inferred.samples.length}`,
+      `Anchor samples used: ${inferred.filtered.length}`,
+      ...inferred.samples.slice(0, 40).map(s => `[ANCHOR] ${s.variantName} -> ${s.parentName}; C=${s.checklistSize}; /${s.serial}; R=1:${s.ratio}; T=${s.totalPacks.toLocaleString()} (${s.source})`),
       "",
       "=== ODDS ROW MATCHES ==="
     ];
@@ -392,22 +483,23 @@ async function processUploadedPDFs() {
       const checklistCount = parent.size;
       const groupType = parent.group;
       const parentName = parent.name;
-      const explicitSerial = detectExplicitSerial(row.variantName);
-
+      const serialInfo = detectKnownSerial(row.variantName);
       let totalSetProduction = 0;
       let calculatedPrintRun = 0;
-      let calcSource = "T/R/C odds calculation";
+      let calcSource = "inferred T/R/C odds calculation";
 
-      if (explicitSerial) {
-        calculatedPrintRun = explicitSerial;
-        totalSetProduction = explicitSerial * checklistCount;
-        calcSource = "explicit serial shortcut";
-      } else {
+      if (serialInfo && serialInfo.serial) {
+        calculatedPrintRun = serialInfo.serial;
+        totalSetProduction = serialInfo.serial * checklistCount;
+        calcSource = `serial anchor (${serialInfo.source})`;
+      } else if (TOTAL_PACKS_PRINTED) {
         totalSetProduction = Math.round(TOTAL_PACKS_PRINTED / row.firstPackRatio);
         calculatedPrintRun = Math.round(totalSetProduction / checklistCount);
+      } else {
+        calcSource = "unable to infer T";
       }
 
-      debugLog.push(`[MATCH] ${row.variantName} -> ${parentName} -> C=${checklistCount}; R=1:${row.firstPackRatio}; Set=${totalSetProduction.toLocaleString()}; PR/card=${calculatedPrintRun.toLocaleString()} (${calcSource})`);
+      debugLog.push(`[MATCH] ${row.variantName} -> ${parentName} -> C=${checklistCount}; R=1:${row.firstPackRatio}; Set=${totalSetProduction ? totalSetProduction.toLocaleString() : "N/A"}; PR/card=${calculatedPrintRun ? calculatedPrintRun.toLocaleString() : "N/A"} (${calcSource})`);
 
       csvRows.push([
         productName,
@@ -415,7 +507,7 @@ async function processUploadedPDFs() {
         row.variantName,
         parentName,
         checklistCount,
-        TOTAL_PACKS_PRINTED,
+        TOTAL_PACKS_PRINTED || "",
         `1:${row.firstPackRatio}`,
         totalSetProduction,
         calculatedPrintRun,
@@ -432,7 +524,7 @@ async function processUploadedPDFs() {
     debugArea.style.display = "block";
     debugOutput.textContent = debugText;
 
-    status.innerHTML = `✅ Analysis complete.\nChecklist subsets detected: ${Object.keys(checklistMap).length}\nOdds rows parsed: ${oddsRows.length}\nT used: ${TOTAL_PACKS_PRINTED.toLocaleString()} packs`;
+    status.innerHTML = `✅ Analysis complete.\nChecklist subsets detected: ${Object.keys(checklistMap).length}\nOdds rows parsed: ${oddsRows.length}\nAuto-inferred T: ${TOTAL_PACKS_PRINTED ? TOTAL_PACKS_PRINTED.toLocaleString() : "unable to infer"} packs`;
     downloadArea.innerHTML = `
       <button onclick="downloadCSV()" class="download-btn" style="width:100%; border:none; cursor:pointer;">📥 DOWNLOAD PRINT RUN CSV</button>
       <button onclick="downloadDebug()" class="download-btn" style="width:100%; border:none; cursor:pointer; background:#64748b;">🧪 DOWNLOAD DEBUG TXT</button>
