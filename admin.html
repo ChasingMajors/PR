@@ -8,14 +8,14 @@
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; padding: 40px; }
         .container { max-width: 700px; margin: 0 auto; background: #1e293b; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
         h1 { color: #38bdf8; font-size: 24px; margin-bottom: 20px; border-bottom: 2px solid #334155; padding-bottom: 10px; }
-        label { display: block; margin-top: 15px; font-weight: 600; font-size: 14px; color: #94a3b8; }
-        input[type="text"] { width: 100%; padding: 12px; margin-top: 6px; background: #0f172a; border: 1px solid #475569; border-radius: 6px; color: #fff; box-sizing: border-box; }
-        button { width: 100%; background: #0284c7; color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 6px; margin-top: 25px; cursor: pointer; transition: background 0.2s; }
-        button:hover { background: #0369a1; }
-        button:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
-        .status-box { margin-top: 20px; padding: 15px; background: #0f172a; border-left: 4px solid #38bdf8; border-radius: 4px; display: none; font-size: 14px; line-height: 1.6; }
-        .download-btn { display: block; text-align: center; margin-top: 20px; background: #10b981; color: white; padding: 14px; text-decoration: none; font-weight: bold; border-radius: 6px; transition: background 0.2s; }
+        p { font-size: 14px; color: #94a3b8; line-height: 1.6; }
+        ol { padding-left: 20px; color: #cbd5e1; font-size: 14px; line-height: 1.8; }
+        .step-box { background: #0f172a; border: 1px solid #334155; border-radius: 8px; padding: 20px; margin-top: 20px; }
+        .action-link { display: inline-block; background: #0284c7; color: white; padding: 12px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; margin-top: 10px; margin-bottom: 15px; transition: background 0.2s; }
+        .action-link:hover { background: #0369a1; }
+        .download-btn { display: block; text-align: center; margin-top: 20px; background: #10b981; color: white; padding: 14px; text-decoration: none; font-weight: bold; border-radius: 6px; }
         .download-btn:hover { background: #059669; }
+        .status-box { margin-top: 20px; padding: 15px; background: #0f172a; border-left: 4px solid #38bdf8; border-radius: 4px; display: none; font-size: 14px; }
         .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid #38bdf8; border-radius: 50%; border-top-color: transparent; animation: spin 1s linear infinite; margin-right: 8px; }
         @keyframes spin { to { transform: rotate(360deg); } }
     </style>
@@ -24,67 +24,54 @@
 
 <div class="container">
     <h1>Chasing Majors - Cloud Print Run Factory</h1>
-    <p style="font-size: 14px; color: #94a3b8;">Enter the live Shopify links below. GitHub Actions cloud runners will securely bypass restrictions, download the files, and write your clean CSV output sheet.</p>
+    <p>To compute the sports card calculations securely without needing local terminal apps or running into web permission blocks, follow this simple 2-step process:</p>
     
-    <label>Topps Checklist PDF URL</label>
-    <input type="text" id="checklistUrl" value="https://cdn.shopify.com/s/files/1/0662/9749/5709/files/2025-26_Topps_Hoops_Basketball_Checklist.pdf?v=1776110447">
-    
-    <label>Topps Pack Odds PDF URL</label>
-    <input type="text" id="oddsUrl" value="https://cdn.shopify.com/s/files/1/0662/9749/5709/files/2025-26_Topps_Hoops_Basketball_Odds.pdf?v=1777298833">
-    
-    <button id="runBtn" onclick="triggerCloudEngine()">⚡ EXECUTE CLOUD CALCULATOR</button>
-    
-    <div id="status" class="status-box"></div>
-    <div id="downloadArea"></div>
+    <div class="step-box">
+        <h3>Step 1: Save Links & Kick Off Engine</h3>
+        <p>Click the link below to open your secure data configuration file on GitHub. Paste your updated PDF links and hit the green <b>Commit changes</b> button to run the engine instantly.</p>
+        <a href="https://github.com/ChasingMajors/PR/edit/main/current_links.json" target="_blank" class="action-link">🔗 OPEN DATA CONFIGURATION FILE</a>
+    </div>
+
+    <div class="step-box">
+        <h3>Step 2: Monitor and Download Sheet</h3>
+        <p>After saving your configuration changes above, click the verification tracking button below to monitor the cloud build status in real time.</p>
+        <button id="trackBtn" onclick="startTracking()" style="width:100%; background:#475569; color:white; border:none; padding:12px; border-radius:6px; font-weight:bold; cursor:pointer;">🔍 TRACK CLOUD ENGINE STATUS</button>
+        
+        <div id="status" class="status-box"></div>
+        <div id="downloadArea"></div>
+    </div>
 </div>
 
 <script>
 const csvUrl = "https://raw.githubusercontent.com/ChasingMajors/PR/main/final_output.csv";
 
-function triggerCloudEngine() {
+function startTracking() {
     const status = document.getElementById('status');
-    const runBtn = document.getElementById('runBtn');
     const downloadArea = document.getElementById('downloadArea');
-    
-    runBtn.disabled = true;
-    downloadArea.innerHTML = "";
     status.style.display = "block";
-    status.innerHTML = "🚀 <b>Signal dispatched to GitHub Cloud Workers!</b><br>Bypassing browser CORS protections and downloading raw Shopify PDF matrices. Polling for file generation now...";
+    downloadArea.innerHTML = "";
     
-    // Start checking if the file is alive on GitHub yet
-    pollForFile();
-}
-
-async function pollForFile() {
-    const status = document.getElementById('status');
-    const downloadArea = document.getElementById('downloadArea');
     let attempts = 0;
-    const maxAttempts = 20; // Will try checking for up to 60 seconds
+    const maxAttempts = 15;
 
     const interval = setInterval(async () => {
         attempts++;
-        status.innerHTML = `<span class="spinner"></span> <b>Cloud Processing (Attempt ${attempts}):</b> Waiting for GitHub to finish compiling calculations and commit the file...`;
+        status.innerHTML = `<span class="spinner"></span> <b>Cloud Engine Status (Check ${attempts}):</b> Checking if GitHub has finished building your calculations...`;
         
         try {
-            // We append a random parameter to the end of the link to break browser cache and force a fresh check
             const response = await fetch(csvUrl + "?t=" + new Date().getTime(), { method: 'HEAD' });
-            
             if (response.ok) {
                 clearInterval(interval);
-                status.innerHTML = "✅ <b>Success!</b> Math matrix matched perfectly. Rounding errors eliminated. Your structural layout has been successfully built.";
-                downloadArea.innerHTML = `<a href="${csvUrl}" download class="download-btn">📥 DOWNLOAD COMPLETED GOOGLE SHEET CSV</a>`;
-                document.getElementById('runBtn').disabled = false;
+                status.innerHTML = "✅ <b>Success!</b> Math matrix calculated and compiled flawlessly. Rounding adjustments complete.";
+                downloadArea.innerHTML = `<a href="${csvUrl}" download class="download-btn">📥 DOWNLOAD EXPORTED GOOGLE SHEET CSV</a>`;
             }
-        } catch (e) {
-            // Keep looping silently until file appears
-        }
+        } catch (e) { }
 
         if (attempts >= maxAttempts) {
             clearInterval(interval);
-            status.innerHTML = "⚠️ <b>Notice:</b> The cloud container is taking slightly longer than expected. Please manually verify your file or try clicking execute again.";
-            document.getElementById('runBtn').disabled = false;
+            status.innerHTML = "⚠️ <b>Notice:</b> The calculation file hasn't updated yet. Ensure you clicked 'Commit changes' on Step 1, or try tracking again.";
         }
-    }, 3000); // Check every 3 seconds
+    }, 3000);
 }
 </script>
 
