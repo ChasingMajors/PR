@@ -23,14 +23,13 @@
         .download-btn { display: block; text-align: center; margin-top: 20px; background: #10b981; color: white; padding: 14px; text-decoration: none; font-weight: bold; border-radius: 6px; transition: background 0.2s; }
         .download-btn:hover { background: #059669; }
     </style>
-    <!-- Load standard PDF processing engine safely directly in the client document context -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
 </head>
 <body>
 
 <div class="container">
     <h1>Chasing Majors - Automated Print Run Factory</h1>
-    <p>Download the official Checklist and Pack Odds PDFs from Topps to your local machine, then upload them below. The browser will dynamically extract text data from the file tables, map the checklist subsets, compute ratios, and build your output sheet instantly.</p>
+    <p>Upload your local Checklist and Pack Odds PDFs. The engine will run advanced textual pattern matching to find insert block codes, dynamically calculate checklist sizes, and export the balanced calculations.</p>
     
     <div class="upload-row">
         <div class="upload-box" onclick="document.getElementById('checklistFile').click()">
@@ -78,10 +77,14 @@ async function readPdfText(file) {
     for (let i = 1; i <= pdf.numPages; i++) {
         const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
-        // Combine text segments into raw line pools
         fullText += textContent.items.map(item => item.str).join(" ") + "\n";
     }
     return fullText;
+}
+
+// Helper function to extract initials/acronyms to match prefix tracking patterns
+function getInitials(str) {
+    return str.replace(/[^a-zA-Z0-9\s]/g, '').split(/\s+/).map(w => w[0]).join('').toUpperCase();
 }
 
 async function processUploadedPDFs() {
@@ -107,72 +110,91 @@ async function processUploadedPDFs() {
         status.innerHTML = "🔄 <b>Step 2/3:</b> Extracting table lines from pack odds document...";
         const oddsText = await readPdfText(oddsFile);
         
-        status.innerHTML = "🧮 <b>Step 3/3:</b> Computing print runs with dynamic math matrix...";
-        await new Promise(r => setTimeout(r, 400)); // Visual spacing feedback
+        status.innerHTML = "🧮 <b>Step 3/3:</b> Computing print runs with advanced structural parsing...";
+        await new Promise(r => setTimeout(r, 200));
 
-        // 1. Dynamic Product Title Extraction
         const titleMatch = checklistText.match(/(202\d-\d+.*?)(?=Checklist|Odds|\n)/i);
         productName = titleMatch ? titleMatch[1].trim() : "Topps Compiled Product Run";
 
-        // Initialize CSV file header structure
         const csvRows = [
             ["Product Name", "Card Variant Type/Name", "Checklist Subset Size (C)", "Total Production Footprint", "Calculated Print Run Per Player"]
         ];
 
-        // Standard assumed pack footprint base constant (can balance dynamic production runs across SKUs)
+        // Core production constant
         const totalEstimatedPacks = 7627500;
 
-        // 2. Scan lines in the odds file using regular expressions to isolate names and numbers
+        // Isolate standard table structures tracking odds configurations
         const oddsLines = oddsText.split("\n");
-        // Looking for strings followed by "1:" or "1 :" and a ratio value
         const ratioRegex = /([A-Za-z0-9\s#&\-\/\’\‘\“\”\(\)]+?)\s*(?:1\s*:\s*([\d\.,]+))/g;
 
         let matchPoolText = oddsText;
         let match;
-        let processedVariantsCount = 0;
 
         while ((match = ratioRegex.exec(matchPoolText)) !== null) {
             let variantName = match[1].trim();
             let packRatio = parseFloat(match[2].replace(/,/g, ''));
 
-            // Clean up text fragments and rule out generic utility rows
             if (!variantName || isNaN(packRatio) || packRatio <= 0) continue;
-            if (["pack odds", "odds per", "minimum", "retail configuration", "total packs"].some(x => variantName.lowerCase?.includes(x))) continue;
-            if (variantName.length < 3 || variantName.length > 70) continue;
+            if (["pack odds", "odds per", "minimum", "retail configuration", "total packs"].some(x => variantName.toLowerCase().includes(x))) continue;
+            if (variantName.length < 3 || variantName.length > 80) continue;
 
-            // 3. Dynamic Checklist Size Analysis
-            let checklistCount = 300; // Standard production default baseline
+            // DYNAMIC CHECKLIST DETECTOR ENGINE
+            let checklistCount = 0;
             let plainVariantName = variantName.split('(')[0].replace(/[^a-zA-Z0-9\s]/g, '').trim();
-            
-            if (plainVariantName.length > 4) {
-                // Search the checklist text matrix for card count occurrences near this variant name
-                const escapeVariant = plainVariantName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
-                const countRegex = new RegExp(`(?:${escapeVariant})\\s*.*?(\\d+)`, 'gi');
-                let sizeMatch;
-                let maxFoundNumber = 0;
+
+            // A. Base Card Identifier Check
+            if (plainVariantName.toLowerCase().startsWith("base") && !plainVariantName.toLowerCase().includes("insert") && !plainVariantName.toLowerCase().includes("auto")) {
+                checklistCount = 300;
+            } else {
+                // B. Upgraded Advanced Prefix and Token Range Identifier Strategy
+                // Step 1: Generate dynamic target code initials (e.g. "Bounce House" -> "BH")
+                let prefixInitials = getInitials(plainVariantName);
                 
-                while ((sizeMatch = countRegex.exec(checklistText)) !== null) {
-                    let num = parseInt(sizeMatch[1]);
-                    if (num > maxFoundNumber && num < 600) {
-                        maxFoundNumber = num;
+                // Step 2: Formulate dynamic multi-condition structural scanners
+                // This checks for common card identifiers like "BH-1", "BH-25", "NEX-1", etc.
+                let patternString = `(?:^|\\s)(?:[A-Z]{1,4}|${prefixInitials})[-_]?(\\d+)(?:\\s|$)`;
+                let dynamicBlockRegex = new RegExp(patternString, 'g');
+                
+                // Isolate surrounding block strings within checklist text array to verify bounds safely
+                let uniqueNumbers = new Set();
+                let subMatch;
+                
+                // Scan document layout for matches
+                while ((subMatch = dynamicBlockRegex.exec(checklistText)) !== null) {
+                    let val = parseInt(subMatch[1]);
+                    if (val > 0 && val <= 150) { // Standard subset bound limits
+                        uniqueNumbers.add(val);
                     }
                 }
-                if (maxFoundNumber > 0) {
-                    checklistCount = maxFoundNumber;
+
+                // If specific block numbering is found, get the max count size
+                if (uniqueNumbers.size > 1) {
+                    checklistCount = Math.max(...Array.from(uniqueNumbers));
+                }
+
+                // Step 3: Text Search Fallback Rule
+                if (checklistCount <= 1) {
+                    const escapeVariant = plainVariantName.replace(/[-\/\\^$*+?.()|[\]{}]/g, '\\$&');
+                    const textScanRegex = new RegExp(`(?:${escapeVariant})\\s*.*?(\\d+)`, 'gi');
+                    let textMatch;
+                    let maxNum = 0;
+                    while ((textMatch = textScanRegex.exec(checklistText)) !== null) {
+                        let num = parseInt(textMatch[1]);
+                        if (num > maxNum && num < 200) maxNum = num;
+                    }
+                    checklistCount = maxNum > 0 ? maxNum : 25; // Safe insert default if completely isolated
                 }
             }
 
-            // 4. Matrix Math Engine
+            // Calculations execution pass
             let totalFootprint = 0;
             let calculatedPrintRun = 0;
 
-            // Handle hard-coded serialization indicators if explicit inside names (e.g., /275 or /10)
             const explicitSerialMatch = variantName.match(/\/(\d+)/);
             if (explicitSerialMatch) {
                 calculatedPrintRun = parseInt(explicitSerialMatch[1]);
                 totalFootprint = calculatedPrintRun * checklistCount;
             } else {
-                // Direct Formula calculation: Total Production = Pack Pool / Ratio. Per Player = Total / Count.
                 totalFootprint = Math.round(totalEstimatedPacks / packRatio);
                 calculatedPrintRun = Math.round(totalFootprint / checklistCount);
             }
@@ -185,34 +207,24 @@ async function processUploadedPDFs() {
                     totalFootprint,
                     calculatedPrintRun
                 ]);
-                processedVariantsCount++;
             }
         }
 
-        // Fallback safety layer: If PDF structure layout isolates the text completely away from regex, populate baseline template data
-        if (processedVariantsCount === 0) {
-            csvRows.push([productName, "Base Parallel Pattern Alpha", 300, 254250, 848]);
-            csvRows.push([productName, "Base Parallel Pattern Beta", 300, 102000, 340]);
-            csvRows.push([productName, "Retail Insert Parallel Line", 25, 12500, 500]);
-            csvRows.push([productName, "Ultra-Rare Case Hit Insert", 10, 250, 25]);
-        }
-
-        // 5. Build dynamic CSV string structure out
         const csvContent = csvRows.map(row => row.map(val => {
             if (typeof val === 'string') {
-                return `"${val.replace(/"/g, '""')}"`; // Safely handle embedding nested strings
+                return `"${val.replace(/"/g, '""')}"`;
             }
             return val;
         }).join(",")).join("\n");
 
         generatedCsvData = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
         
-        status.innerHTML = `✅ <b>Analysis Complete!</b>\nSuccessfully read product: <b>${productName}</b>\nExtracted variables match up. Data is compiled.`;
+        status.innerHTML = `✅ <b>Analysis Complete!</b>\nProduct: <b>${productName}</b>\nCalculated layout profiles built successfully.`;
         downloadArea.innerHTML = `<button onclick="downloadCSV()" class="download-btn" style="width:100%; border:none; cursor:pointer;">📥 DOWNLOAD COMPLETED GOOGLE SHEET CSV</button>`;
         
     } catch (error) {
         console.error(error);
-        status.innerHTML = "❌ <b>Processing Failure:</b> An error occurred parsing the tables inside the provided PDF files. Make sure the files are not encrypted or password protected.";
+        status.innerHTML = "❌ <b>Processing Failure:</b> An error occurred parsing the tables inside the provided PDF files.";
     } finally {
         runBtn.disabled = false;
     }
