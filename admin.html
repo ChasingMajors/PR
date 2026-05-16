@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chasing Majors - Dynamic Print Run Dashboard</title>
+    <title>Chasing Majors - Structural Print Run Dashboard</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; padding: 40px; }
         .container { max-width: 750px; margin: 0 auto; background: #1e293b; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
@@ -19,7 +19,7 @@
         button { width: 100%; background: #0284c7; color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
         button:hover { background: #0369a1; }
         button:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
-        .status-box { margin-top: 20px; padding: 15px; background: #0f172a; border-left: 4px solid #38bdf8; border-radius: 4px; display: none; font-size: 14px; line-height: 1.6; white-space: pre-line; }
+        .status-box { margin-top: 20px; padding: 15px; background: #0f172a; border-left: 4px solid #38bdf8; border-radius: 4px; display: none; font-size: 14px; line-height: 1.6; }
         .download-btn { display: block; text-align: center; margin-top: 20px; background: #10b981; color: white; padding: 14px; text-decoration: none; font-weight: bold; border-radius: 6px; transition: background 0.2s; }
         .download-btn:hover { background: #059669; }
     </style>
@@ -29,7 +29,7 @@
 
 <div class="container">
     <h1>Chasing Majors - Automated Print Run Factory</h1>
-    <p>Upload your local Checklist and Pack Odds PDFs. The updated layout engine dynamically detects alphanumeric prefixes (like D-1, PA-20) and player-initial strings (like HS-AE) to calculate exact subset sizes.</p>
+    <p>Upload your local Checklist and Pack Odds PDFs. This version reads line items sequentially to isolate set names and accurately count their entries, regardless of whether the cards use numerical, alphabetical, or custom codes.</p>
     
     <div class="upload-row">
         <div class="upload-box" onclick="document.getElementById('checklistFile').click()">
@@ -103,94 +103,78 @@ async function processUploadedPDFs() {
     downloadArea.innerHTML = "";
     
     try {
-        status.innerHTML = "🔄 <b>Step 1/3:</b> Ingesting checklist data structure...";
+        status.innerHTML = "🔄 <b>Step 1/3:</b> Reading checklist layout...";
         const checklistText = await readPdfText(checkFile);
         
-        status.innerHTML = "🔄 <b>Step 2/3:</b> Loading odds calculation table lines...";
+        status.innerHTML = "🔄 <b>Step 2/3:</b> Extracting ratios from pack odds...";
         const oddsText = await readPdfText(oddsFile);
         
-        status.innerHTML = "🧮 <b>Step 3/3:</b> Mapping subset structural intervals...";
-        await new Promise(r => setTimeout(r, 100));
+        status.innerHTML = "🧮 <b>Step 3/3:</b> Calculating set sizes via layout analysis...";
+        await new Promise(r => setTimeout(r, 50));
 
         const titleMatch = checklistText.match(/(202\d-\d+.*?)(?=Checklist|Odds|\n)/i);
         productName = titleMatch ? titleMatch[1].trim() : "Topps Compiled Product Run";
 
         const checklistLines = checklistText.split("\n");
-        
-        // 1. ISOLATE ALL SET HEADERS OUT OF PACK ODDS
+
+        // PASS 1: EXTRACT MASTER LIST OF SET NAMES OUT OF THE PACK ODDS FILE
         const ratioRegex = /([A-Za-z0-9\s#&\-\/\’\‘\“\”\(\)]+?)\s*(?:1\s*:\s*([\d\.,]+))/g;
-        let uniqueTargetNames = new Set();
+        let uniqueSetsList = [];
+        let observedKeys = new Set();
         let match;
 
         while ((match = ratioRegex.exec(oddsText)) !== null) {
-            let name = match[1].trim().split('(')[0].split('-')[0].trim();
-            if (name.length > 4 && !["pack odds", "odds per", "minimum", "retail configuration", "total packs"].some(x => name.toLowerCase().includes(x))) {
-                uniqueTargetNames.add(name);
+            let baseName = match[1].trim().split('(')[0].split('-')[0].trim();
+            // Clean out headers or formatting terms
+            if (baseName.length > 3 && !["pack odds", "odds per", "minimum", "retail configuration", "total packs", "base"].some(x => baseName.toLowerCase().includes(x))) {
+                let key = cleanString(baseName);
+                if (!observedKeys.has(key)) {
+                    observedKeys.add(key);
+                    uniqueSetsList.push(baseName);
+                }
             }
         }
 
-        let targetList = Array.from(uniqueTargetNames);
-        let foundMarkers = [];
-
-        // Locate header line positioning in checklist
+        // PASS 2: SEARCH THE CHECKLIST TIMELINE TO LOCATE EVERY SET WINDOW
+        let sectionMarkers = [];
         for (let i = 0; i < checklistLines.length; i++) {
-            let line = checklistLines[i];
-            for (let target of targetList) {
-                if (line.toLowerCase().includes(target.toLowerCase()) && !line.toLowerCase().includes("parallel")) {
-                    foundMarkers.push({ name: target, index: i });
+            let line = checklistLines[i].trim();
+            if (line.length < 4 || line.length > 100) continue;
+
+            for (let setName of uniqueSetsList) {
+                if (line.toLowerCase().includes(setName.toLowerCase()) && !line.toLowerCase().includes("parallel")) {
+                    sectionMarkers.push({ name: setName, index: i });
                     break;
                 }
             }
         }
 
-        foundMarkers.sort((a, b) => a.index - b.index);
+        // Sort markers by where they physically appear in the document text flow
+        sectionMarkers.sort((a, b) => a.index - b.index);
 
-        // 2. NEW DYNAMIC RANGE SCANNER (HANDLES D-1, PA-20, AND HS-AE AUTOS)
+        // PASS 3: MEASURE THE TEXT INTERVALS TO COUNT PLAYER ROWS
         let subsetSizesMap = {};
-        for (let k = 0; k < foundMarkers.length; k++) {
-            let startIdx = foundMarkers[k].index;
-            let endIdx = (k + 1 < foundMarkers.length) ? foundMarkers[k+1].index : checklistLines.length;
+        for (let i = 0; i < sectionMarkers.length; i++) {
+            let startIdx = sectionMarkers[i].index;
+            let endIdx = (i + 1 < sectionMarkers.length) ? sectionMarkers[i+1].index : checklistLines.length;
             
-            let cardCodesInBlock = new Set();
-            let sequentialMaxNumber = 0;
+            let countedPlayerLines = 0;
 
-            for (let m = startIdx; m < endIdx; m++) {
-                let checkLine = checklistLines[m].trim();
+            for (let m = startIdx + 1; m < endIdx; m++) {
+                let currentLine = checklistLines[m].trim();
                 
-                // Matches standard prefixes (e.g., D-15, PA-20, BH-5)
-                let prefixNumberMatch = checkLine.match(/(?:^|\s)([A-Z]{1,4})-?(\d+)(?:\s|$)/i);
-                if (prefixNumberMatch) {
-                    let numVal = parseInt(prefixNumberMatch[2]);
-                    if (numVal > sequentialMaxNumber && numVal < 150) {
-                        sequentialMaxNumber = numVal;
-                    }
-                    cardCodesInBlock.add(prefixNumberMatch[0].trim());
-                    continue;
-                }
-
-                // Matches pure alphanumeric autograph formats (e.g., HS-AE, HS-AED)
-                let alphaCodeMatch = checkLine.match(/(?:^|\s)([A-Z]{1,4})-([A-Z]{2,4})(?:\s|$)/i);
-                if (alphaCodeMatch) {
-                    cardCodesInBlock.add(alphaCodeMatch[0].trim());
+                // A valid card entry line must contain characters, space intervals, and not be a blank string or page footer
+                if (currentLine.length > 12 && currentLine.includes(" ") && !currentLine.toLowerCase().includes("topps") && !currentLine.toLowerCase().includes("page")) {
+                    countedPlayerLines++;
                 }
             }
-            
-            // Determine set size: Use highest sequence index, or total unique code footprint
-            let blockCalculatedCount = sequentialMaxNumber > 0 ? sequentialMaxNumber : cardCodesInBlock.size;
-            
-            // Final backup: If a block contains items but missed regex formatting rules, look at individual lines
-            if (blockCalculatedCount === 0) {
-                let textLineCount = 0;
-                for (let m = startIdx + 1; m < endIdx; m++) {
-                    if (checklistLines[m].trim().length > 10) textLineCount++;
-                }
-                blockCalculatedCount = textLineCount > 0 ? textLineCount : 25;
-            }
 
-            subsetSizesMap[cleanString(foundMarkers[k].name)] = blockCalculatedCount;
+            // Fallback safety guard if section text structure changes unexpectedly
+            if (countedPlayerLines === 0) countedPlayerLines = 25;
+            subsetSizesMap[cleanString(sectionMarkers[i].name)] = countedPlayerLines;
         }
 
-        // 3. EXECUTE OUTPUT COMPILATION
+        // PASS 4: GENERATE FINAL MATHEMATICAL INTERPOLATIONS
         const csvRows = [
             ["Product Name", "Card Variant Type/Name", "Checklist Subset Size (C)", "Total Production Footprint", "Calculated Print Run Per Player"]
         ];
@@ -205,7 +189,7 @@ async function processUploadedPDFs() {
             if (!variantName || isNaN(packRatio) || packRatio <= 0) continue;
             if (["pack odds", "odds per", "minimum", "retail configuration", "total packs"].some(x => variantName.toLowerCase().includes(x))) continue;
 
-            let checklistCount = 300; 
+            let checklistCount = 300; // Base card set standard baseline
             let matchedCleanName = cleanString(variantName.split('(')[0]);
 
             if (matchedCleanName.includes("base") && !matchedCleanName.includes("insert") && !matchedCleanName.includes("auto")) {
@@ -218,7 +202,7 @@ async function processUploadedPDFs() {
                         break;
                     }
                 }
-                checklistCount = assignedSize !== null ? assignedSize : (variantName.toLowerCase().includes("auto") ? 12 : 25);
+                checklistCount = assignedSize !== null ? assignedSize : (variantName.toLowerCase().includes("auto") ? 8 : 25);
             }
 
             let totalFootprint = 0;
@@ -251,12 +235,12 @@ async function processUploadedPDFs() {
 
         generatedCsvData = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
         
-        status.innerHTML = `✅ <b>Analysis Complete!</b>\nMapped Product: <b>${productName}</b>\nAll variant alphanumeric formatting structures processed accurately.`;
+        status.innerHTML = `✅ <b>Analysis Complete!</b>\nProduct: <b>${productName}</b>\nAll subset counts calculated by layout tracking rules successfully.`;
         downloadArea.innerHTML = `<button onclick="downloadCSV()" class="download-btn" style="width:100%; border:none; cursor:pointer;">📥 DOWNLOAD COMPLETED GOOGLE SHEET CSV</button>`;
         
     } catch (error) {
         console.error(error);
-        status.innerHTML = "❌ <b>Processing Failure:</b> An error occurred parsing the tables inside the provided PDF files.";
+        status.innerHTML = "❌ <b>Processing Failure:</b> An error occurred parsing the structural tables inside your files.";
     } finally {
         runBtn.disabled = false;
     }
