@@ -1,12 +1,22 @@
-name: Chasing Majors Math Engine
+name: Chasing Majors Magic Data Input
 
 on:
-  push:
-    paths:
-      - 'raw_odds.json'
+  workflow_dispatch:
+    inputs:
+      product_name:
+        description: 'Product Name (e.g., 2025-26 Topps Hoops)'
+        required: true
+        default: '2025-26 Topps Hoops Basketball'
+      base_set_size:
+        description: 'Base Checklist Size (e.g., 300)'
+        required: true
+        default: '300'
+      raw_odds_paste:
+        description: 'Paste the raw text block directly from the Topps PDF here'
+        required: true
 
 jobs:
-  calculate:
+  calculate_and_deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -17,15 +27,35 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-state: '3.10'
+        python-version: '3.10'
 
-    - name: Run Print Run Calculations
-      run: python engine.py
+    - name: Pass Form Data to Math Engine
+      env:
+        PRODUCT: ${{ github.event.inputs.product_name }}
+        SET_SIZE: ${{ github.event.inputs.base_set_size }}
+        RAW_PASTE: ${{ github.event.inputs.raw_odds_paste }}
+      run: |
+        python -c "
+        import os, json
+        # Capture variables sent from the web form
+        data = {
+            'product': os.environ['PRODUCT'],
+            'base_set_size': int(os.environ['SET_SIZE']),
+            'raw_input_dump': os.environ['RAW_PASTE']
+        }
+        with open('raw_input_catch.json', 'w') as f:
+            json.dump(data, f)
+        "
 
-    - name: Commit and Push Calculated JSON
+    - name: Execute Matrix Calculations
+      run: |
+        # This executes the calculation engine using the new input catcher file
+        python engine.py
+
+    - name: Commit Updated JSON directly to Live Site
       run: |
         git config --global user.name "Chasing Majors Engine"
         git config --global user.email "engine@chasingmajors.com"
         git add final_output.json
-        git commit -m "Automated math calculation update [skip ci]" || exit 0
+        git commit -m "Magic Update: ${{ github.event.inputs.product_name }} calculated successfully [skip ci]" || exit 0
         git push
