@@ -1,0 +1,30 @@
+{
+  "product": "2025-26 Topps Hoops Basketball",
+  "base_set_size": 300,
+  "skus": {
+    "hobby": { "cards_per_pack": 8, "packs_per_box": 20 },
+    "jumbo": { "cards_per_pack": 20, "packs_per_box": 10 },
+    "value_box": { "cards_per_pack": 8, "packs_per_box": 7 },
+    "hanger": { "cards_per_pack": 25, "packs_per_box": 1 }
+  },
+  "parallels": [
+    {
+      "name": "Base Rainbow (Unnumbered)",
+      "checklist_count": 300,
+      "serial_limit": null,
+      "odds": { "hobby": 4, "jumbo": 2, "value_box": 12, "hanger": 2 }
+    },
+    {
+      "name": "Base Pixel Burst (Unnumbered)",
+      "checklist_count": 300,
+      "serial_limit": null,
+      "odds": { "hobby": 10, "jumbo": 5, "value_box": 3, "hanger": 3 }
+    },
+    {
+      "name": "Rainbow Yellow",
+      "checklist_count": 300,
+      "serial_limit": 275,
+      "odds": { "hobby": 14, "jumbo": 7, "value_box": 12, "hanger": 5 }
+    }
+  ]
+}
