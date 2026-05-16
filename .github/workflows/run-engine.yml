@@ -1,0 +1,31 @@
+name: Chasing Majors Math Engine
+
+on:
+  push:
+    paths:
+      - 'raw_odds.json'
+
+jobs:
+  calculate:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-state: '3.10'
+
+    - name: Run Print Run Calculations
+      run: python engine.py
+
+    - name: Commit and Push Calculated JSON
+      run: |
+        git config --global user.name "Chasing Majors Engine"
+        git config --global user.email "engine@chasingmajors.com"
+        git add final_output.json
+        git commit -m "Automated math calculation update [skip ci]" || exit 0
+        git push
