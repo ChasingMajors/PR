@@ -1,12 +1,12 @@
-name: Chasing Majors PDF Processor
+name: Chasing Majors Dynamic PDF Processor
 
 on:
   push:
     paths:
-      - 'current_links.json'  # Trigger instantly whenever this file changes
+      - 'current_links.json'
 
 jobs:
-  build_sheet:
+  calculate_print_runs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -14,32 +14,24 @@ jobs:
     - name: Checkout Repository
       uses: actions/checkout@v4
 
-    - name: Build Production Data Structures
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-python-version: '3.10'
+
+    - name: Install PDF & Math Engines
       run: |
-        # Secure cloud container compiling the data matrix without browser locks
-        cat << 'EOF' > final_output.csv
-        Product Name,Card Variant Type/Name,Checklist Subset Size (C),Total Production Footprint,Calculated Print Run Per Player
-        "2025-26 Topps Hoops Basketball","Base Rainbow Parallel (Unnumbered)",300,254250,848
-        "2025-26 Topps Hoops Basketball","Base Pixel Burst (Unnumbered)",300,102000,340
-        "2025-26 Topps Hoops Basketball","Neon Green Parallel",300,45000,150
-        "2025-26 Topps Hoops Basketball","Rainbow Yellow Parallel (/275)",300,82500,275
-        "2025-26 Topps Hoops Basketball","Rainbow Green & Blue Parallel (/249)",300,74700,249
-        "2025-26 Topps Hoops Basketball","Artist Proof Gold (/10)",300,3000,10
-        "2025-26 Topps Hoops Basketball","Presentation Insert Set Base",25,12500,500
-        "2025-26 Topps Hoops Basketball","Pure Fluid Insert Set Base",15,9000,600
-        "2025-26 Topps Hoops Basketball","Hardwired Retail Insert",20,16000,800
-        "2025-26 Topps Hoops Basketball","The Buzz Retail Insert",15,10500,700
-        "2025-26 Topps Hoops Basketball","Jam-Packed Retail Insert",25,12500,500
-        "2025-26 Topps Hoops Basketball","Oasis Case Hit",10,250,25
-        "2025-26 Topps Hoops Basketball","Joy Case Hit",15,300,20
-        "2025-26 Topps Hoops Basketball","Checkmate Case Hit",20,200,10
-        "2025-26 Topps Hoops Basketball","Boom Shaka Laka Case Hit",10,150,15
-        EOF
+        python -m pip install --upgrade pip
+        pip install pypdf requests pandas
+
+    - name: Run Dynamic Math Engine
+      run: |
+        python compute.py
 
     - name: Save Compiled Sheet to Main Branch
       run: |
         git config --global user.name "Chasing Majors Engine"
         git config --global user.email "engine@chasingmajors.com"
         git add final_output.csv
-        git commit -m "Updated production calculations from live PDF inputs [skip ci]" || exit 0
+        git commit -m "Dynamic calculation update from live input links [skip ci]" || exit 0
         git push
