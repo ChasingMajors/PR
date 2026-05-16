@@ -49,16 +49,8 @@
     </div>
   </div>
 
-  <div class="grid-2">
-    <div>
-      <label>Total Estimated Packs</label>
-      <input id="totalPacks" type="number" value="7627500">
-    </div>
-    <div>
-      <label>Base Checklist Count Override</label>
-      <input id="baseCountOverride" type="number" placeholder="Optional, ex: 300">
-    </div>
-  </div>
+  <label>Base Checklist Count Override</label>
+  <input id="baseCountOverride" type="number" placeholder="Optional, ex: 300">
 
   <label>Serial Overrides</label>
   <textarea id="serialOverrides" style="height:130px;" placeholder="Paste serial-numbered parallel notes here
@@ -377,6 +369,13 @@ function findParentSubset(variantName, checklistMap) {
   return null;
 }
 
+function medianNumber(values) {
+  const nums = values.filter(n => Number.isFinite(n) && n > 0).sort((a,b) => a-b);
+  if (!nums.length) return 0;
+  const mid = Math.floor(nums.length / 2);
+  return nums.length % 2 ? nums[mid] : Math.round((nums[mid - 1] + nums[mid]) / 2);
+}
+
 async function processUploadedPDFs() {
   const checkFile = document.getElementById('checklistFile').files[0];
   const oddsFile = document.getElementById('oddsFile').files[0];
@@ -409,15 +408,35 @@ async function processUploadedPDFs() {
     const titleMatch = (checkFile.name || "").replace(/\.pdf$/i, "").replace(/[_-]/g, " ");
     productName = titleMatch || "Topps Compiled Product Run";
 
-    const totalEstimatedPacks = parseInt(document.getElementById("totalPacks").value, 10) || 0;
     const serialOverrideMap = parseSerialOverrides();
     const parsedChecklist = parseChecklist(checklistText);
     const checklistMap = parsedChecklist.map;
     const oddsRows = parseOddsRows(oddsText);
 
+    const inferredPackSamples = [];
+
+    oddsRows.forEach(row => {
+      const parent = findParentSubset(row.variantName, checklistMap);
+      if (!parent) return;
+
+      const serialKeyRaw = cleanKey(row.variantName);
+      const serialKeyParent = parentKeyFromVariant(row.variantName);
+      const serialOverride = serialOverrideMap[serialKeyRaw] || serialOverrideMap[serialKeyParent] || null;
+
+      if (serialOverride && row.firstPackRatio && parent.size) {
+        inferredPackSamples.push(serialOverride * parent.size * row.firstPackRatio);
+      }
+    });
+
+    const totalEstimatedPacks = medianNumber(inferredPackSamples);
+
     const debugLog = [
       "=== CHECKLIST COUNTS ===",
       ...parsedChecklist.debug,
+      "",
+      `=== AUTO PACK ESTIMATE ===`,
+      `Estimated total packs: ${totalEstimatedPacks || "Not enough serial override data"}`,
+      `Serial-based samples used: ${inferredPackSamples.length}`,
       "",
       "=== ODDS ROW MATCHES ==="
     ];
@@ -452,9 +471,10 @@ async function processUploadedPDFs() {
         totalFootprint = totalEstimatedPacks && row.firstPackRatio
           ? Math.round(totalEstimatedPacks / row.firstPackRatio)
           : 0;
-        calculatedPrintRun = checklistCount
+        calculatedPrintRun = checklistCount && totalFootprint
           ? Math.round(totalFootprint / checklistCount)
           : 0;
+        if (!totalEstimatedPacks) calcSource = "needs serial override to infer packs";
       }
 
       debugLog.push(`[MATCH] ${row.variantName} -> ${parentName} -> ${checklistCount} cards (${groupType}) [${calcSource}]`);
@@ -481,7 +501,7 @@ async function processUploadedPDFs() {
     debugArea.style.display = "block";
     debugOutput.textContent = debugText;
 
-    status.innerHTML = `✅ Analysis complete.\nChecklist subsets detected: ${Object.keys(checklistMap).length}\nOdds rows parsed: ${oddsRows.length}`;
+    status.innerHTML = `✅ Analysis complete.\nChecklist subsets detected: ${Object.keys(checklistMap).length}\nOdds rows parsed: ${oddsRows.length}\nAuto-estimated total packs: ${totalEstimatedPacks || "not enough serial override data"}`;
     downloadArea.innerHTML = `
       <button onclick="downloadCSV()" class="download-btn" style="width:100%; border:none; cursor:pointer;">📥 DOWNLOAD PRINT RUN CSV</button>
       <button onclick="downloadDebug()" class="download-btn" style="width:100%; border:none; cursor:pointer; background:#64748b;">🧪 DOWNLOAD DEBUG TXT</button>
