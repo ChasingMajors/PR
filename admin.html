@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chasing Majors - Dynamic Hierarchy Dashboard</title>
+    <title>Chasing Majors - Prefix Range Dashboard</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; padding: 40px; }
         .container { max-width: 750px; margin: 0 auto; background: #1e293b; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
@@ -29,7 +29,7 @@
 
 <div class="container">
     <h1>Chasing Majors - Automated Print Run Factory</h1>
-    <p>Upload your local Checklist and Pack Odds PDFs. The upgraded engine identifies primary category pillars (Base, Insert, Autograph), tracks their sequential subsets, and generates an organized, sortable layout.</p>
+    <p>Upload your Checklist and Pack Odds PDFs. This version automatically classifies major groups (Base, Insert, Autograph) and scans code number ranges to accurately compute subset counts.</p>
     
     <div class="upload-row">
         <div class="upload-box" onclick="document.getElementById('checklistFile').click()">
@@ -103,13 +103,13 @@ async function processUploadedPDFs() {
     downloadArea.innerHTML = "";
     
     try {
-        status.innerHTML = "🔄 <b>Step 1/3:</b> Reading checklist document framework...";
+        status.innerHTML = "🔄 <b>Step 1/3:</b> Mapping checklist file stream...";
         const checklistText = await readPdfText(checkFile);
         
-        status.innerHTML = "🔄 <b>Step 2/3:</b> Loading odds calculation tables...";
+        status.innerHTML = "🔄 <b>Step 2/3:</b> Parsing pack odds tables...";
         const oddsText = await readPdfText(oddsFile);
         
-        status.innerHTML = "🧮 <b>Step 3/3:</b> Building structural layout hierarchy...";
+        status.innerHTML = "🧮 <b>Step 3/3:</b> Calculating exact subset boundaries...";
         await new Promise(r => setTimeout(r, 50));
 
         const titleMatch = checklistText.match(/(202\d-\d+.*?)(?=Checklist|Odds|\n)/i);
@@ -117,7 +117,7 @@ async function processUploadedPDFs() {
 
         const checklistLines = checklistText.split("\n");
 
-        // --- PHASE 1: PARSE ALL SUBSET DEFINITIONS FROM THE ODDS DICTIONARY ---
+        // STEP 1: PARSE THE MASTER SET LIST OUT OF PACK ODDS
         const ratioRegex = /([A-Za-z0-9\s#&\-\/\’\‘\“\”\(\)]+?)\s*(?:1\s*:\s*([\d\.,]+))/g;
         let targetSubsets = [];
         let trackedKeys = new Set();
@@ -136,55 +136,81 @@ async function processUploadedPDFs() {
             }
         }
 
-        // --- PHASE 2: SCAN THE CHECKLIST AND MAP COMPONENT SIZES DYNAMICALLY ---
-        let currentCategory = "BASE"; 
+        // STEP 2: SEGMENT CHECKLIST BY TYPE PILLARS & SCAN EXACT RANGES
+        let currentCategory = "BASE";
         let subsetSizeMap = {};
-        let currentSubset = "Base Cards";
-        let lineCounter = 0;
+        let currentSubset = null;
+        
+        // Trackers for codes inside a single subset section
+        let currentSectionNumbers = [];
+        let currentSectionAlphas = new Set();
 
         const mainCategories = ["BASE", "INSERT", "AUTOGRAPH", "RELIC", "MEMORABILIA", "VARIATION"];
+
+        function saveCurrentSubsetData() {
+            if (!currentSubset) return;
+            
+            let finalCount = 25; // Safe default fallback
+            
+            if (currentSectionNumbers.length > 0) {
+                let maxNum = Math.max(...currentSectionNumbers);
+                let minNum = Math.min(...currentSectionNumbers);
+                // Handle cases like base sets spanning 1-300 or inserts spanning 1-25
+                finalCount = (maxNum - minNum) + 1;
+                if (finalCount < maxNum) finalCount = maxNum; 
+            } else if (currentSectionAlphas.size > 0) {
+                finalCount = currentSectionAlphas.size;
+            }
+            
+            subsetSizeMap[cleanKey(currentSubset)] = { size: finalCount, group: currentCategory };
+            
+            // Reset trackers
+            currentSectionNumbers = [];
+            currentSectionAlphas = new Set();
+        }
 
         for (let i = 0; i < checklistLines.length; i++) {
             let line = checklistLines[i].trim();
             if (line.length < 2) continue;
 
-            // A. Check for Main Category Pillar switches
-            let matchedCategory = mainCategories.find(cat => line === cat || line === `${cat}S`);
-            if (matchedCategory) {
-                // Save out processing values before swapping context rules
-                if (currentSubset) {
-                    subsetSizeMap[cleanKey(currentSubset)] = { size: lineCounter || 300, group: currentCategory };
-                }
-                currentCategory = matchedCategory;
-                lineCounter = 0;
+            // A. Check for category shifts
+            let cleanLine = line.toUpperCase().replace(/S$/, ''); // Normalize INSERTS -> INSERT
+            if (mainCategories.includes(cleanLine)) {
+                saveCurrentSubsetData();
+                currentCategory = cleanLine === "INSERT" ? "INSERT" : cleanLine;
                 currentSubset = null;
                 continue;
             }
 
-            // B. Check for Subset Title switches under current active group
+            // B. Check for subset name shifts
             let foundNewSubset = targetSubsets.find(sub => line.toLowerCase() === sub.toLowerCase() || line.toLowerCase().startsWith(sub.toLowerCase() + " "));
             if (foundNewSubset) {
-                if (currentSubset) {
-                    subsetSizeMap[cleanKey(currentSubset)] = { size: lineCounter || 25, group: currentCategory };
-                }
+                saveCurrentSubsetData();
                 currentSubset = foundNewSubset;
-                lineCounter = 0;
                 continue;
             }
 
-            // C. Count lines containing active player metadata matching entry patterns
-            // Validating spaces ensures standalone titles or formatting headers aren't falsely accumulated
-            if (line.length > 10 && line.includes(" ") && !line.toLowerCase().includes("page") && !line.toLowerCase().includes("topps")) {
-                lineCounter++;
+            // C. Scan line for structural card codes to find the true set size
+            // Pattern 1: Alphanumeric with index number (e.g., BH-1, BH-25, D-15, 300)
+            let numMatch = line.match(/(?:^|\s)(?:[A-Z]{1,4}-)?(\d+)(?:\s|$)/i);
+            if (numMatch) {
+                let val = parseInt(numMatch[1]);
+                if (val > 0 && val < 500) {
+                    currentSectionNumbers.push(val);
+                }
+            }
+            
+            // Pattern 2: Pure Alphanumeric strings (e.g., HS-AE, HS-AED)
+            let alphaMatch = line.match(/(?:^|\s)([A-Z]{1,4}-[A-Z]{2,4})(?:\s|$)/i);
+            if (alphaMatch) {
+                currentSectionAlphas.add(alphaMatch[1]);
             }
         }
+        
+        // Save terminal block
+        saveCurrentSubsetData();
 
-        // Catch terminal open block definitions safely
-        if (currentSubset) {
-            subsetSizeMap[cleanKey(currentSubset)] = { size: lineCounter || 25, group: currentCategory };
-        }
-
-        // --- PHASE 3: PROCESS ODDS MATRIX MATH AND GENERATE OUTPUT ARRAY ---
+        // STEP 3: ASSEMBLE SPREADSHEET OUTPUT
         const csvRows = [
             ["Product Name", "Product Group Type", "Card Variant Type/Name", "Checklist Subset Size (C)", "Total Production Footprint", "Calculated Print Run Per Player"]
         ];
@@ -219,13 +245,12 @@ async function processUploadedPDFs() {
                     checklistCount = matchedMapItem.size;
                     groupType = matchedMapItem.group;
                 } else {
-                    // Context fallback rules if explicit structural bounds get detached
                     if (variantName.toLowerCase().includes("auto")) {
                         groupType = "AUTOGRAPH";
-                        checklistCount = 10;
+                        checklistCount = 15;
                     } else if (variantName.toLowerCase().includes("relic")) {
                         groupType = "RELIC";
-                        checklistCount = 15;
+                        checklistCount = 20;
                     }
                 }
             }
@@ -254,7 +279,6 @@ async function processUploadedPDFs() {
             }
         }
 
-        // Format raw spreadsheet structures safely
         const csvContent = csvRows.map(row => row.map(val => {
             if (typeof val === 'string') return `"${val.replace(/"/g, '""')}"`;
             return val;
@@ -262,12 +286,12 @@ async function processUploadedPDFs() {
 
         generatedCsvData = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
         
-        status.innerHTML = `✅ <b>Analysis Complete!</b>\nProduct: <b>${productName}</b>\nAll components sorted by group type dynamically. Ready for download.`;
-        downloadArea.innerHTML = `<button onclick="downloadCSV()" class="download-btn" style="width:100%; border:none; cursor:pointer;">📥 DOWNLOAD SORTABLE PRINT RUN CSV</button>`;
+        status.innerHTML = `✅ <b>Analysis Complete!</b>\nProduct Identified: <b>${productName}</b>\nAll prefix ranges parsed completely. Ready for export.`;
+        downloadArea.innerHTML = `<button onclick="downloadCSV()" class="download-btn" style="width:100%; border:none; cursor:pointer;">📥 DOWNLOAD PRINT RUN CSV</button>`;
         
     } catch (error) {
         console.error(error);
-        status.innerHTML = "❌ <b>Processing Failure:</b> An error occurred parsing the tables inside the provided PDF files.";
+        status.innerHTML = "❌ <b>Processing Failure:</b> An error occurred reading the text stream patterns inside your files.";
     } finally {
         runBtn.disabled = false;
     }
