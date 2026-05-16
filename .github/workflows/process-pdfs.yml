@@ -1,9 +1,8 @@
 name: Chasing Majors Dynamic PDF Processor
 
 on:
-  push:
-    paths:
-      - 'current_links.json'
+  repository_dispatch:
+    types: [frontend_trigger]
 
 jobs:
   calculate_print_runs:
@@ -17,7 +16,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v5
       with:
-        python-python-version: '3.10'
+        python-version: '3.10'
 
     - name: Install PDF & Math Engines
       run: |
@@ -26,12 +25,13 @@ jobs:
 
     - name: Run Dynamic Math Engine
       run: |
-        python compute.py
+        # Pass the frontend text input variables right into the python parser execution string
+        python compute.py "${{ github.event.client_payload.checklist_url }}" "${{ github.event.client_payload.odds_url }}"
 
     - name: Save Compiled Sheet to Main Branch
       run: |
         git config --global user.name "Chasing Majors Engine"
         git config --global user.email "engine@chasingmajors.com"
         git add final_output.csv
-        git commit -m "Dynamic calculation update from live input links [skip ci]" || exit 0
-        git push
+        git commit -m "Dynamic calculation update from UI input dashboard [skip ci]" || exit 0
+        git push        git push
