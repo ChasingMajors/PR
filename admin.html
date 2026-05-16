@@ -52,7 +52,12 @@
 <button id="runBtn" onclick="processUploadedPDFs()">⚡ GENERATE PRINT RUN CSV</button>
     
     <div id="status" class="status-box"></div>
-    <div id="downloadArea"></div>
+    <div id="debugArea" style="margin-top:20px;display:none;">
+    <h3 style="color:#38bdf8;">Parser Debug View</h3>
+    <pre id="debugOutput" style="background:#020617;color:#e2e8f0;padding:15px;border-radius:8px;max-height:400px;overflow:auto;font-size:12px;white-space:pre-wrap;"></pre>
+</div>
+
+<div id="downloadArea"></div>
 </div>
 
 <script>
@@ -237,6 +242,8 @@ async function processUploadedPDFs() {
         saveCurrentSubsetData();
 
         // STEP 3: ASSEMBLE SPREADSHEET OUTPUT
+        let debugLog = [];
+
         const csvRows = [
             ["Product Name", "Product Group Type", "Card Variant Type/Name", "Checklist Subset Size (C)", "Total Production Footprint", "Calculated Print Run Per Player"]
         ];
@@ -314,6 +321,8 @@ async function processUploadedPDFs() {
                 if (matchedMapItem) {
                     checklistCount = matchedMapItem.size;
                     groupType = matchedMapItem.group;
+
+                    debugLog.push(`[MATCH] ${variantName} -> ${checklistCount} cards (${groupType})`);
                 } else {
                     if (variantName.toLowerCase().includes("auto")) {
                         groupType = "AUTOGRAPH";
@@ -359,7 +368,10 @@ async function processUploadedPDFs() {
 
         generatedCsvData = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
         
-        status.innerHTML = `✅ <b>Analysis Complete!</b>\nProduct Identified: <b>${productName}</b>\nAll prefix ranges parsed completely. Ready for export.`;
+        document.getElementById('debugArea').style.display = 'block';
+        document.getElementById('debugOutput').textContent = debugLog.join('\n');
+
+        status.innerHTML = `✅ <b>Analysis Complete!</b>\nProduct Identified: <b>${productName}</b>\nParser debug view restored.`;
         downloadArea.innerHTML = `<button onclick="downloadCSV()" class="download-btn" style="width:100%; border:none; cursor:pointer;">📥 DOWNLOAD PRINT RUN CSV</button>`;
         
     } catch (error) {
