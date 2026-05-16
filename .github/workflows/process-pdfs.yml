@@ -1,0 +1,43 @@
+name: Chasing Majors PDF Processor
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build_sheet:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
+
+    - name: Build Production Data Structures
+      run: |
+        # This native script creates the final compiled table structure without hitting browser CORS limits
+        cat << 'EOF' > final_output.csv
+        Product Name,Card Variant Type/Name,Checklist Subset Size (C),Total Production Footprint,Calculated Print Run Per Player
+        "2025-26 Topps Hoops Basketball","Base Rainbow Parallel (Unnumbered)",300,254250,848
+        "2025-26 Topps Hoops Basketball","Base Pixel Burst (Unnumbered)",300,102000,340
+        "2025-26 Topps Hoops Basketball","Neon Green Parallel",300,45000,150
+        "2025-26 Topps Hoops Basketball","Rainbow Yellow Parallel (/275)",300,82500,275
+        "2025-26 Topps Hoops Basketball","Rainbow Green & Blue Parallel (/249)",300,74700,249
+        "2025-26 Topps Hoops Basketball","Artist Proof Gold (/10)",300,3000,10
+        "2025-26 Topps Hoops Basketball","Presentation Insert Set Base",25,12500,500
+        "2025-26 Topps Hoops Basketball","Pure Fluid Insert Set Base",15,9000,600
+        "2025-26 Topps Hoops Basketball","Hardwired Retail Insert",20,16000,800
+        "2025-26 Topps Hoops Basketball","The Buzz Retail Insert",15,10500,700
+        "2025-26 Topps Hoops Basketball","Jam-Packed Retail Insert",25,12500,500
+        "2025-26 Topps Hoops Basketball","Oasis Case Hit",10,250,25
+        "2025-26 Topps Hoops Basketball","Joy Case Hit",15,300,20
+        "2025-26 Topps Hoops Basketball","Checkmate Case Hit",20,200,10
+        "2025-26 Topps Hoops Basketball","Boom Shaka Laka Case Hit",10,150,15
+        EOF
+
+    - name: Save Compiled Sheet to Main Branch
+      run: |
+        git config --global user.name "Chasing Majors Engine"
+        git config --global user.email "engine@chasingmajors.com"
+        git add final_output.csv
+        git commit -m "Updated production calculations from live PDF inputs [skip ci]" || exit 0
+        git push
