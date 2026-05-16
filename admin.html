@@ -47,9 +47,9 @@
         </div>
     </div>
     
-    <textarea id="serialOverrides" style="width:100%;height:140px;margin-bottom:20px;background:#0f172a;color:#f8fafc;border:1px solid #475569;padding:10px;border-radius:6px;" placeholder="Paste serial overrides here&#10;Example:&#10;Base Pixel Burst Blue /149&#10;Base Pixel Burst Purple /99"></textarea>
+    <textarea id="serialOverrides" style="width:100%;height:120px;margin-bottom:20px;background:#0f172a;color:#fff;border:1px solid #475569;padding:10px;border-radius:6px;" placeholder="Paste serial overrides here&#10;Example:&#10;Base Pixel Burst Blue /149"></textarea>
 
-    <button id="runBtn" onclick="processUploadedPDFs()">⚡ GENERATE PRINT RUN CSV</button>
+<button id="runBtn" onclick="processUploadedPDFs()">⚡ GENERATE PRINT RUN CSV</button>
     
     <div id="status" class="status-box"></div>
     <div id="downloadArea"></div>
@@ -169,37 +169,31 @@ async function processUploadedPDFs() {
 
         const mainCategories = ["BASE", "INSERT", "AUTOGRAPH", "RELIC", "MEMORABILIA", "VARIATION"];
 
-        
-function saveCurrentSubsetData() {
+        function saveCurrentSubsetData() {
             if (!currentSubset) return;
-
-            let finalCount = 0;
-
-            // Prefer unique alpha card codes
-            if (currentSectionAlphas.size > 0) {
+            
+            let finalCount = 25; // Safe default fallback
+            
+            if (currentSectionNumbers.length > 0) {
+                let maxNum = Math.max(...currentSectionNumbers);
+                let minNum = Math.min(...currentSectionNumbers);
+                // Handle cases like base sets spanning 1-300 or inserts spanning 1-25
+                finalCount = (maxNum - minNum) + 1;
+                if (finalCount < maxNum) finalCount = maxNum; 
+            } else if (currentSectionAlphas.size > 0) {
                 finalCount = currentSectionAlphas.size;
-            }
-            // Otherwise use numeric ranges
-            else if (currentSectionNumbers.length > 0) {
-                finalCount = Math.max(...currentSectionNumbers);
-            }
 
-            // Normalize giant base sections
-            if (cleanKey(currentSubset).includes("base")) {
-                finalCount = 300;
+                if (cleanKey(currentSubset).includes("base")) {
+                    finalCount = 300;
+                }
             }
-
-            if (finalCount > 0) {
-                subsetSizeMap[cleanKey(currentSubset)] = {
-                    size: finalCount,
-                    group: currentCategory
-                };
-            }
-
+            
+            subsetSizeMap[cleanKey(currentSubset)] = { size: finalCount, group: currentCategory };
+            
+            // Reset trackers
             currentSectionNumbers = [];
             currentSectionAlphas = new Set();
         }
-
 
         for (let i = 0; i < checklistLines.length; i++) {
             let line = checklistLines[i].trim();
@@ -259,7 +253,7 @@ function saveCurrentSubsetData() {
             }
         });
 
-        function normalizeVariantToParent(name) {
+        function getParentSubsetName(name) {
             return cleanKey(
                 name
                     .replace(/\/\d+/g, '')
@@ -280,7 +274,6 @@ function saveCurrentSubsetData() {
                     .trim()
             );
         }
-
  
         let resetRatioRegex = /([A-Za-z0-9\s#&\-\/\’\‘\“\”\(\)]+?)\s*(?:1\s*:\s*([\d\.,]+))/g;
 
@@ -293,7 +286,7 @@ function saveCurrentSubsetData() {
 
             let groupType = "INSERT";
             let checklistCount = 25;
-            let cleanVariant = normalizeVariantToParent(variantName.split('(')[0]);
+            let cleanVariant = getParentSubsetName(variantName.split('(')[0]);
 
             if (cleanVariant.includes("base")) {
                 groupType = "BASE";
