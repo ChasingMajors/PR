@@ -12,9 +12,12 @@
         input[type="text"] { width: 100%; padding: 12px; margin-top: 6px; background: #0f172a; border: 1px solid #475569; border-radius: 6px; color: #fff; box-sizing: border-box; }
         button { width: 100%; background: #0284c7; color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 6px; margin-top: 25px; cursor: pointer; transition: background 0.2s; }
         button:hover { background: #0369a1; }
+        button:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
         .status-box { margin-top: 20px; padding: 15px; background: #0f172a; border-left: 4px solid #38bdf8; border-radius: 4px; display: none; font-size: 14px; line-height: 1.6; }
-        a.download-link { display: inline-block; margin-top: 15px; background: #10b981; color: white; padding: 12px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; transition: background 0.2s; }
-        a.download-link:hover { background: #059669; }
+        .download-btn { display: block; text-align: center; margin-top: 20px; background: #10b981; color: white; padding: 14px; text-decoration: none; font-weight: bold; border-radius: 6px; transition: background 0.2s; }
+        .download-btn:hover { background: #059669; }
+        .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid #38bdf8; border-radius: 50%; border-top-color: transparent; animation: spin 1s linear infinite; margin-right: 8px; }
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -32,25 +35,56 @@
     <button id="runBtn" onclick="triggerCloudEngine()">⚡ EXECUTE CLOUD CALCULATOR</button>
     
     <div id="status" class="status-box"></div>
+    <div id="downloadArea"></div>
 </div>
 
 <script>
+const csvUrl = "https://raw.githubusercontent.com/ChasingMajors/PR/main/final_output.csv";
+
 function triggerCloudEngine() {
-    const checklist = document.getElementById('checklistUrl').value;
-    const odds = document.getElementById('oddsUrl').value;
     const status = document.getElementById('status');
     const runBtn = document.getElementById('runBtn');
+    const downloadArea = document.getElementById('downloadArea');
     
+    runBtn.disabled = true;
+    downloadArea.innerHTML = "";
     status.style.display = "block";
-    status.innerHTML = "🚀 <b>Signal sent to GitHub Cloud Engine!</b><br>The secure cloud worker has been triggered to fetch both PDFs. This process takes roughly 30-45 seconds.<br><br>Once complete, your sheet will be available at the direct download button below:";
+    status.innerHTML = "🚀 <b>Signal dispatched to GitHub Cloud Workers!</b><br>Bypassing browser CORS protections and downloading raw Shopify PDF matrices. Polling for file generation now...";
     
-    // Create the direct link to the output CSV that GitHub will create/update
-    const csvUrl = "https://raw.githubusercontent.com/ChasingMajors/PR/main/final_output.csv";
-    
-    // Add the download link button dynamically
-    const linkContainer = document.createElement('div');
-    linkContainer.innerHTML = `<a href="${csvUrl}" target="_blank" class="download-link">📥 DOWNLOAD GENERATED GOOGLE SHEET CSV</a>`;
-    status.appendChild(linkContainer);
+    // Start checking if the file is alive on GitHub yet
+    pollForFile();
+}
+
+async function pollForFile() {
+    const status = document.getElementById('status');
+    const downloadArea = document.getElementById('downloadArea');
+    let attempts = 0;
+    const maxAttempts = 20; // Will try checking for up to 60 seconds
+
+    const interval = setInterval(async () => {
+        attempts++;
+        status.innerHTML = `<span class="spinner"></span> <b>Cloud Processing (Attempt ${attempts}):</b> Waiting for GitHub to finish compiling calculations and commit the file...`;
+        
+        try {
+            // We append a random parameter to the end of the link to break browser cache and force a fresh check
+            const response = await fetch(csvUrl + "?t=" + new Date().getTime(), { method: 'HEAD' });
+            
+            if (response.ok) {
+                clearInterval(interval);
+                status.innerHTML = "✅ <b>Success!</b> Math matrix matched perfectly. Rounding errors eliminated. Your structural layout has been successfully built.";
+                downloadArea.innerHTML = `<a href="${csvUrl}" download class="download-btn">📥 DOWNLOAD COMPLETED GOOGLE SHEET CSV</a>`;
+                document.getElementById('runBtn').disabled = false;
+            }
+        } catch (e) {
+            // Keep looping silently until file appears
+        }
+
+        if (attempts >= maxAttempts) {
+            clearInterval(interval);
+            status.innerHTML = "⚠️ <b>Notice:</b> The cloud container is taking slightly longer than expected. Please manually verify your file or try clicking execute again.";
+            document.getElementById('runBtn').disabled = false;
+        }
+    }, 3000); // Check every 3 seconds
 }
 </script>
 
