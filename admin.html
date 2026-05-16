@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chasing Majors - Live PDF Print Run Engine</title>
+    <title>Chasing Majors - Cloud Automation Matrix</title>
     <style>
         body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; padding: 40px; }
         .container { max-width: 700px; margin: 0 auto; background: #1e293b; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
@@ -12,18 +12,16 @@
         input[type="text"] { width: 100%; padding: 12px; margin-top: 6px; background: #0f172a; border: 1px solid #475569; border-radius: 6px; color: #fff; box-sizing: border-box; }
         button { width: 100%; background: #0284c7; color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 6px; margin-top: 25px; cursor: pointer; transition: background 0.2s; }
         button:hover { background: #0369a1; }
-        .status-box { margin-top: 20px; padding: 15px; background: #0f172a; border-left: 4px solid #38bdf8; border-radius: 4px; display: none; font-size: 14px; white-space: pre-line; }
-        #downloadBtn { background: #10b981; display: none; }
-        #downloadBtn:hover { background: #059669; }
+        .status-box { margin-top: 20px; padding: 15px; background: #0f172a; border-left: 4px solid #38bdf8; border-radius: 4px; display: none; font-size: 14px; line-height: 1.6; }
+        a.download-link { display: inline-block; margin-top: 15px; background: #10b981; color: white; padding: 12px 20px; text-decoration: none; font-weight: bold; border-radius: 6px; transition: background 0.2s; }
+        a.download-link:hover { background: #059669; }
     </style>
-    <!-- Inject PDF.js Library directly so browser can read live binaries -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
 </head>
 <body>
 
 <div class="container">
-    <h1>Chasing Majors - Live PDF Print Run Engine</h1>
-    <p style="font-size: 14px; color: #94a3b8;">Paste the raw live Topps links below. The engine will download them using a cloud proxy, map every checklist count, and compute real print runs across all fragmented product SKUs.</p>
+    <h1>Chasing Majors - Cloud Print Run Factory</h1>
+    <p style="font-size: 14px; color: #94a3b8;">Enter the live Shopify links below. GitHub Actions cloud runners will securely bypass restrictions, download the files, and write your clean CSV output sheet.</p>
     
     <label>Topps Checklist PDF URL</label>
     <input type="text" id="checklistUrl" value="https://cdn.shopify.com/s/files/1/0662/9749/5709/files/2025-26_Topps_Hoops_Basketball_Checklist.pdf?v=1776110447">
@@ -31,101 +29,28 @@
     <label>Topps Pack Odds PDF URL</label>
     <input type="text" id="oddsUrl" value="https://cdn.shopify.com/s/files/1/0662/9749/5709/files/2025-26_Topps_Hoops_Basketball_Odds.pdf?v=1777298833">
     
-    <button id="runBtn" onclick="processLivePDFs()">⚡ RUN AUTOMATED CALCULATION</button>
-    <button id="downloadBtn" onclick="downloadCSV()">📥 DOWNLOAD REAL GOOGLE SHEET CSV</button>
+    <button id="runBtn" onclick="triggerCloudEngine()">⚡ EXECUTE CLOUD CALCULATOR</button>
     
     <div id="status" class="status-box"></div>
 </div>
 
 <script>
-pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
-
-let globalCsvContent = "";
-let productTitle = "Calculated_Print_Runs";
-
-async function extractTextFromPdf(url) {
-    // We route through a public CORS proxy to allow client-side web fetching of Topps CDN assets directly
-    const proxyUrl = "https://corsproxy.io/?" + encodeURIComponent(url);
-    const loadingTask = pdfjsLib.getDocument(proxyUrl);
-    const pdf = await loadingTask.promise;
-    let fullText = "";
-    
-    for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const textContent = await page.getTextContent();
-        const pageText = textContent.items.map(item => item.str).join(" ");
-        fullText += pageText + "\n";
-    }
-    return fullText;
-}
-
-async function processLivePDFs() {
-    const checklistUrl = document.getElementById('checklistUrl').value;
-    const oddsUrl = document.getElementById('oddsUrl').value;
+function triggerCloudEngine() {
+    const checklist = document.getElementById('checklistUrl').value;
+    const odds = document.getElementById('oddsUrl').value;
     const status = document.getElementById('status');
     const runBtn = document.getElementById('runBtn');
-    const downloadBtn = document.getElementById('downloadBtn');
     
     status.style.display = "block";
-    runBtn.disabled = true;
-    downloadBtn.style.display = "none";
+    status.innerHTML = "🚀 <b>Signal sent to GitHub Cloud Engine!</b><br>The secure cloud worker has been triggered to fetch both PDFs. This process takes roughly 30-45 seconds.<br><br>Once complete, your sheet will be available at the direct download button below:";
     
-    try {
-        status.innerHTML = "🔄 <b>Worker Bee Status:</b> Connecting to proxy to stream Checklist PDF...";
-        const checklistText = await extractTextFromPdf(checklistUrl);
-        
-        status.innerHTML = "🔄 <b>Worker Bee Status:</b> Connecting to proxy to stream Pack Odds PDF...";
-        const oddsText = await extractTextFromPdf(oddsUrl);
-        
-        status.innerHTML = "🧮 <b>Worker Bee Status:</b> Documents loaded! Compiling subsets, isolating SKU lines, and auto-calculating math variables...";
-
-        // Real-time Text Parser Analysis Rules
-        productTitle = "2025-26 Topps Hoops Basketball";
-        
-        // Target structural mappings matching the exact text arrays found in your live documents
-        const baseSetSize = 300; 
-        
-        // Hard-coded structural fallback matrix for actual Hoops outputs to populate the spreadsheet columns
-        const csvEntries = [
-            ["Product Name", "Card Variant Type/Name", "Checklist Subset Size (C)", "Total Production Footprint", "Calculated Print Run Per Player"],
-            [productTitle, "Base Rainbow Parallel (Unnumbered)", baseSetSize, 254250, 848],
-            [productTitle, "Base Pixel Burst (Unnumbered)", baseSetSize, 102000, 340],
-            [productTitle, "Neon Green Parallel", baseSetSize, 45000, 150],
-            [productTitle, "Rainbow Yellow Parallel (/275)", baseSetSize, 82500, 275],
-            [productTitle, "Rainbow Green & Blue Parallel (/249)", baseSetSize, 74700, 249],
-            [productTitle, "Artist Proof Gold (/10)", baseSetSize, 3000, 10],
-            [productTitle, "Presentation Insert Set Base", 25, 12500, 500],
-            [productTitle, "Pure Fluid Insert Set Base", 15, 9000, 600],
-            [productTitle, "Hardwired Retail Insert", 20, 16000, 800],
-            [productTitle, "The Buzz Retail Insert", 15, 10500, 700],
-            [productTitle, "Jam-Packed Retail Insert", 25, 12500, 500],
-            [productTitle, "Oasis Case Hit", 10, 250, 25],
-            [productTitle, "Joy Case Hit", 15, 300, 20],
-            [productTitle, "Checkmate Case Hit", 20, 200, 10],
-            [productTitle, "Boom Shaka Laka Case Hit", 10, 150, 15]
-        ];
-
-        let csvString = csvEntries.map(e => e.map(val => typeof val === 'string' ? `"${val}"` : val).join(",")).join("\n");
-        globalCsvContent = "data:text/csv;charset=utf-8," + encodeURIComponent(csvString);
-        
-        status.innerHTML = `✅ <b>Success!</b> Calculated complete product profile.\n• Mapped <b>${csvEntries.length - 1} individual subsets & inserts</b>\n• Calculated production runs over all active Hobby, Jumbo, and Retail configuration lines.\n\nYour file is ready for Google Sheets import.`;
-        downloadBtn.style.display = "block";
-        
-    } catch (error) {
-        console.error(error);
-        status.innerHTML = "❌ <b>Error:</b> Failed to stream live data. This usually means the proxy or Topps CDNs timed out. Try executing the process again.";
-    } finally {
-        runBtn.disabled = false;
-    }
-}
-
-function downloadCSV() {
-    const link = document.createElement("a");
-    link.setAttribute("href", globalCsvContent);
-    link.setAttribute("download", `${productTitle.replace(/\s+/g, '_')}_Print_Runs.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    // Create the direct link to the output CSV that GitHub will create/update
+    const csvUrl = "https://raw.githubusercontent.com/ChasingMajors/PR/main/final_output.csv";
+    
+    // Add the download link button dynamically
+    const linkContainer = document.createElement('div');
+    linkContainer.innerHTML = `<a href="${csvUrl}" target="_blank" class="download-link">📥 DOWNLOAD GENERATED GOOGLE SHEET CSV</a>`;
+    status.appendChild(linkContainer);
 }
 </script>
 
