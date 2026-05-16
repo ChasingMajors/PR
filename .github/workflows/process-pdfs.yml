@@ -1,7 +1,9 @@
 name: Chasing Majors PDF Processor
 
 on:
-  workflow_dispatch:
+  push:
+    paths:
+      - 'current_links.json'  # Trigger instantly whenever this file changes
 
 jobs:
   build_sheet:
@@ -14,7 +16,7 @@ jobs:
 
     - name: Build Production Data Structures
       run: |
-        # This native script creates the final compiled table structure without hitting browser CORS limits
+        # Secure cloud container compiling the data matrix without browser locks
         cat << 'EOF' > final_output.csv
         Product Name,Card Variant Type/Name,Checklist Subset Size (C),Total Production Footprint,Calculated Print Run Per Player
         "2025-26 Topps Hoops Basketball","Base Rainbow Parallel (Unnumbered)",300,254250,848
