@@ -16,23 +16,24 @@
     .upload-box .icon { font-size: 24px; margin-bottom: 8px; display: block; }
     .upload-box .label { font-size: 14px; font-weight: 600; color: #cbd5e1; }
     .upload-box .filename { font-size: 12px; color: #10b981; margin-top: 8px; display: none; font-weight: bold; word-break: break-all; }
-    textarea, input[type="number"] { width: 100%; background: #0f172a; color: #f8fafc; border: 1px solid #475569; padding: 10px; border-radius: 6px; box-sizing: border-box; }
-    label { display:block; font-size:13px; color:#cbd5e1; font-weight:700; margin:16px 0 8px; }
     button { width: 100%; background: #0284c7; color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
     button:hover { background: #0369a1; }
     button:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
     .status-box { margin-top: 20px; padding: 15px; background: #0f172a; border-left: 4px solid #38bdf8; border-radius: 4px; display: none; font-size: 14px; line-height: 1.6; white-space: pre-line; }
     .download-btn { display: block; text-align: center; margin-top: 20px; background: #10b981; color: white; padding: 14px; text-decoration: none; font-weight: bold; border-radius: 6px; transition: background 0.2s; }
     .download-btn:hover { background: #059669; }
-    .grid-2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
     pre { background:#020617; color:#e2e8f0; padding:15px; border-radius:8px; max-height:430px; overflow:auto; font-size:12px; white-space:pre-wrap; }
+    .note { background:#0f172a; border:1px solid #334155; padding:12px; border-radius:8px; color:#cbd5e1; font-size:13px; margin-bottom:20px; }
   </style>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
 </head>
 <body>
 <div class="container">
   <h1>Chasing Majors - Automated Print Run Factory</h1>
-  <p>Upload Checklist and Pack Odds PDFs. Counts come from the checklist PDF first. Odds rows inherit parent checklist counts. No manual serial-number or total-pack inputs.</p>
+  <p>Upload Checklist and Pack Odds PDFs. The factory calculates print runs using Total Packs × Pack Odds × Checklist Subset Size.</p>
+  <div class="note">
+    Current hidden Total Packs Printed constant: <b>7,627,500</b>. Change <code>TOTAL_PACKS_PRINTED</code> in the code when your product estimate changes.
+  </div>
 
   <div class="upload-row">
     <div class="upload-box" onclick="document.getElementById('checklistFile').click()">
@@ -49,8 +50,6 @@
     </div>
   </div>
 
-
-
   <button id="runBtn" onclick="processUploadedPDFs()">⚡ GENERATE PRINT RUN CSV</button>
 
   <div id="status" class="status-box"></div>
@@ -65,6 +64,9 @@
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
+
+// CHANGE THIS CONSTANT WHEN YOU HAVE A DIFFERENT PRODUCT TOTAL PACK ESTIMATE.
+const TOTAL_PACKS_PRINTED = 7627500;
 
 let generatedCsvData = "";
 let generatedDebugData = "";
@@ -90,11 +92,7 @@ async function readPdfText(file) {
     const textContent = await page.getTextContent();
 
     const items = textContent.items
-      .map(item => ({
-        str: item.str,
-        x: item.transform[4],
-        y: Math.round(item.transform[5])
-      }))
+      .map(item => ({ str: item.str, x: item.transform[4], y: Math.round(item.transform[5]) }))
       .sort((a, b) => (b.y - a.y) || (a.x - b.x));
 
     const lines = [];
@@ -120,6 +118,7 @@ async function readPdfText(file) {
 
     fullText += lines.join("\n") + "\n";
   }
+
   return fullText;
 }
 
@@ -130,10 +129,6 @@ function cleanKey(str) {
     .replace(/&/g, "and")
     .replace(/[^a-z0-9]/g, "")
     .trim();
-}
-
-function prettyName(str) {
-  return String(str || "").toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
 }
 
 function csvEscape(val) {
@@ -159,18 +154,12 @@ function normalizeCategory(line) {
 function extractCardCode(line) {
   const s = line.trim();
 
-  // Numeric base rows: 1 Player Team
   let m = s.match(/^(\d{1,4})(?=\s+[A-Za-zÀ-ÖØ-öø-ÿ'’.])/);
   if (m) return { code: m[1], numeric: true };
 
-  // Alpha/digital style rows, including glued rows:
-  // BH-1 Anthony, NTN-10Anthony, HRS-ABAce, 89S-ABAce
   m = s.match(/^([A-Z0-9]{1,5}-[A-Z0-9]{1,8})(?=[A-ZÀ-ÖØ-öø-ÿ\s'’.]|$)/);
   if (m) {
     let code = m[1];
-
-    // For glued autograph rows, trim code to the uppercase/card-code run.
-    // This keeps HRS-ABAce as HRS-AB, but leaves BYB-10 and NTN-10 intact.
     const parts = code.split("-");
     if (parts[1] && !/^\d+$/.test(parts[1])) {
       const letters = parts[1].match(/^[A-Z0-9]+/);
@@ -190,7 +179,6 @@ function isLikelySubsetHeading(line, category) {
   if (/odds|checklists provided|actual contents|card\s+hobby|rookie$/i.test(s)) return false;
   if (category === "BASE" && /^BASE CARDS/i.test(s)) return false;
 
-  // Topps section headings are usually all caps, sometimes with digits.
   const letters = s.replace(/[^A-Za-z]/g, "");
   const upperRatio = letters ? (letters.replace(/[a-z]/g, "").length / letters.length) : 0;
   return upperRatio > 0.75 && s.length <= 55;
@@ -222,9 +210,7 @@ function parseChecklist(checklistText) {
     const card = extractCardCode(line);
 
     if (category === "BASE") {
-      if (card && card.numeric) {
-        baseCodes.add(card.code);
-      }
+      if (card && card.numeric) baseCodes.add(card.code);
       return;
     }
 
@@ -241,9 +227,9 @@ function parseChecklist(checklistText) {
     }
   });
 
-  let baseCount = baseCodes.size ? Math.max(...Array.from(baseCodes).map(Number)) : 0;
-
   const finalMap = {};
+  const baseCount = baseCodes.size ? Math.max(...Array.from(baseCodes).map(Number)) : 0;
+
   if (baseCount > 0) {
     finalMap["base"] = { name: "Base", group: "BASE", size: baseCount };
     debug.push(`[CHECKLIST] Base => ${baseCount} cards (BASE)`);
@@ -265,7 +251,7 @@ const PARALLEL_PHRASES = [
   "pixel burst", "light burst", "green hoops", "orange hoops",
   "rainbow red and orange", "rainbow purple and blue",
   "rainbow green and blue", "rainbow gold and green",
-  "rainbow yellow", "rainbow teal", "rainbow",
+  "rainbow blue and yellow", "rainbow yellow", "rainbow teal", "rainbow",
   "blue and yellow", "red and orange", "purple and blue",
   "green and blue", "gold and green",
   "first round", "second round", "semifinals round", "the finals",
@@ -275,9 +261,7 @@ const PARALLEL_PHRASES = [
 ];
 
 function parentKeyFromVariant(name) {
-  let s = String(name || "")
-    .replace(/\/\d+/g, "")
-    .replace(/\([^)]*\)/g, " ");
+  let s = String(name || "").replace(/\/\d+/g, "").replace(/\([^)]*\)/g, " ");
 
   PARALLEL_PHRASES.forEach(p => {
     const re = new RegExp("\\b" + p.replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + "\\b", "ig");
@@ -285,10 +269,6 @@ function parentKeyFromVariant(name) {
   });
 
   return cleanKey(s);
-}
-
-function parseSerialOverrides() {
-  return {};
 }
 
 function parseOddsRows(oddsText) {
@@ -324,11 +304,7 @@ function findParentSubset(variantName, checklistMap) {
   const parentKey = parentKeyFromVariant(variantName);
   const keys = Object.keys(checklistMap).sort((a,b) => b.length - a.length);
 
-  // Base only if the parent key is exactly base or starts with base from a true base variant.
-  if (parentKey === "base" || /^base/.test(parentKey)) {
-    return checklistMap["base"] || null;
-  }
-
+  if (parentKey === "base" || /^base/.test(parentKey)) return checklistMap["base"] || null;
   if (checklistMap[parentKey]) return checklistMap[parentKey];
 
   for (const key of keys) {
@@ -338,15 +314,17 @@ function findParentSubset(variantName, checklistMap) {
     }
   }
 
-  // Try without aggressive descriptor stripping as backup.
   for (const key of keys) {
     if (key === "base") continue;
-    if (directKey.startsWith(key)) {
-      return checklistMap[key];
-    }
+    if (directKey.startsWith(key)) return checklistMap[key];
   }
 
   return null;
+}
+
+function detectExplicitSerial(variantName) {
+  const m = String(variantName || "").match(/\/\s*(\d+)/);
+  return m ? parseInt(m[1], 10) : null;
 }
 
 async function processUploadedPDFs() {
@@ -376,16 +354,23 @@ async function processUploadedPDFs() {
     status.innerHTML = "🔄 Reading odds PDF...";
     const oddsText = await readPdfText(oddsFile);
 
-    status.innerHTML = "🧮 Parsing checklist counts and mapping odds rows...";
+    status.innerHTML = "🧮 Calculating print runs...";
 
-    const titleMatch = (checkFile.name || "").replace(/\.pdf$/i, "").replace(/[_-]/g, " ");
-    productName = titleMatch || "Topps Compiled Product Run";
+    productName = (checkFile.name || "Product").replace(/\.pdf$/i, "").replace(/[_-]/g, " ");
 
     const parsedChecklist = parseChecklist(checklistText);
     const checklistMap = parsedChecklist.map;
     const oddsRows = parseOddsRows(oddsText);
 
     const debugLog = [
+      "=== PRINT RUN BLUEPRINT ===",
+      `T = Total Packs Printed = ${TOTAL_PACKS_PRINTED.toLocaleString()}`,
+      "R = Pack Ratio from odds PDF",
+      "C = Checklist Subset Size from checklist PDF",
+      "Total Set Production = T / R",
+      "Print Run Per Card = Total Set Production / C",
+      "Explicit /### serial notation bypasses odds math.",
+      "",
       "=== CHECKLIST COUNTS ===",
       ...parsedChecklist.debug,
       "",
@@ -393,11 +378,12 @@ async function processUploadedPDFs() {
     ];
 
     const csvRows = [
-      ["Product Name", "Product Group Type", "Card Variant Type/Name", "Parent Checklist", "Checklist Subset Size (C)", "Pack Odds Used", "Cards Per Pack Estimate", "Formula", "Notes"]
+      ["Product Name", "Product Group Type", "Card Variant Type/Name", "Parent Checklist", "Checklist Subset Size (C)", "Total Packs Printed (T)", "Pack Odds Used (R)", "Total Set Production (T/R)", "Calculated Print Run Per Card", "Calc Source"]
     ];
 
     oddsRows.forEach(row => {
       const parent = findParentSubset(row.variantName, checklistMap);
+
       if (!parent) {
         debugLog.push(`[UNMATCHED] ${row.variantName}`);
         return;
@@ -406,15 +392,22 @@ async function processUploadedPDFs() {
       const checklistCount = parent.size;
       const groupType = parent.group;
       const parentName = parent.name;
-      const cardsPerPackEstimate = checklistCount && row.firstPackRatio
-        ? `1 card per ${row.firstPackRatio} packs across ${checklistCount} cards`
-        : "";
+      const explicitSerial = detectExplicitSerial(row.variantName);
 
-      const formula = checklistCount && row.firstPackRatio
-        ? `Print run per card = Total Packs / ${row.firstPackRatio} / ${checklistCount}`
-        : "";
+      let totalSetProduction = 0;
+      let calculatedPrintRun = 0;
+      let calcSource = "T/R/C odds calculation";
 
-      debugLog.push(`[MATCH] ${row.variantName} -> ${parentName} -> ${checklistCount} cards (${groupType})`);
+      if (explicitSerial) {
+        calculatedPrintRun = explicitSerial;
+        totalSetProduction = explicitSerial * checklistCount;
+        calcSource = "explicit serial shortcut";
+      } else {
+        totalSetProduction = Math.round(TOTAL_PACKS_PRINTED / row.firstPackRatio);
+        calculatedPrintRun = Math.round(totalSetProduction / checklistCount);
+      }
+
+      debugLog.push(`[MATCH] ${row.variantName} -> ${parentName} -> C=${checklistCount}; R=1:${row.firstPackRatio}; Set=${totalSetProduction.toLocaleString()}; PR/card=${calculatedPrintRun.toLocaleString()} (${calcSource})`);
 
       csvRows.push([
         productName,
@@ -422,10 +415,11 @@ async function processUploadedPDFs() {
         row.variantName,
         parentName,
         checklistCount,
+        TOTAL_PACKS_PRINTED,
         `1:${row.firstPackRatio}`,
-        cardsPerPackEstimate,
-        formula,
-        "No manual serial or total-pack input used"
+        totalSetProduction,
+        calculatedPrintRun,
+        calcSource
       ]);
     });
 
@@ -438,7 +432,7 @@ async function processUploadedPDFs() {
     debugArea.style.display = "block";
     debugOutput.textContent = debugText;
 
-    status.innerHTML = `✅ Analysis complete.\nChecklist subsets detected: ${Object.keys(checklistMap).length}\nOdds rows parsed: ${oddsRows.length}\nNo manual serial or total-pack inputs used.`;
+    status.innerHTML = `✅ Analysis complete.\nChecklist subsets detected: ${Object.keys(checklistMap).length}\nOdds rows parsed: ${oddsRows.length}\nT used: ${TOTAL_PACKS_PRINTED.toLocaleString()} packs`;
     downloadArea.innerHTML = `
       <button onclick="downloadCSV()" class="download-btn" style="width:100%; border:none; cursor:pointer;">📥 DOWNLOAD PRINT RUN CSV</button>
       <button onclick="downloadDebug()" class="download-btn" style="width:100%; border:none; cursor:pointer; background:#64748b;">🧪 DOWNLOAD DEBUG TXT</button>
