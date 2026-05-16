@@ -3,41 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Chasing Majors - Automated Print Run Factory</title>
+    <title>Chasing Majors - Prefix Range Dashboard</title>
     <style>
-        :root{
-            --bg:#0f172a;
-            --panel:#1e293b;
-            --panel2:#0f172a;
-            --line:#334155;
-            --muted:#94a3b8;
-            --text:#f8fafc;
-            --blue:#38bdf8;
-            --blue2:#0284c7;
-            --green:#10b981;
-            --red:#f87171;
-        }
-        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--text); padding: 40px; }
-        .container { max-width: 900px; margin: 0 auto; background: var(--panel); padding: 30px; border-radius: 16px; box-shadow: 0 18px 40px rgba(0,0,0,0.25); }
-        h1 { color: var(--blue); font-size: 24px; margin-bottom: 12px; border-bottom: 2px solid var(--line); padding-bottom: 12px; }
-        p { font-size: 14px; color: var(--muted); margin-bottom: 25px; line-height: 1.6; }
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #0f172a; color: #f8fafc; padding: 40px; }
+        .container { max-width: 750px; margin: 0 auto; background: #1e293b; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.1); }
+        h1 { color: #38bdf8; font-size: 24px; margin-bottom: 20px; border-bottom: 2px solid #334155; padding-bottom: 10px; }
+        p { font-size: 14px; color: #94a3b8; margin-bottom: 25px; line-height: 1.6; }
         .upload-row { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 25px; }
-        .upload-box { background: var(--panel2); border: 2px dashed #475569; border-radius: 12px; padding: 30px 15px; text-align: center; cursor: pointer; transition: border-color 0.2s, transform 0.2s; }
-        .upload-box:hover { border-color: var(--blue); transform: translateY(-1px); }
+        .upload-box { background: #0f172a; border: 2px dashed #475569; border-radius: 8px; padding: 30px 15px; text-align: center; cursor: pointer; transition: border-color 0.2s; }
+        .upload-box:hover { border-color: #38bdf8; }
         .upload-box input[type="file"] { display: none; }
         .upload-box .icon { font-size: 24px; margin-bottom: 8px; display: block; }
-        .upload-box .label { font-size: 14px; font-weight: 700; color: #cbd5e1; }
-        .upload-box .filename { font-size: 12px; color: var(--green); margin-top: 8px; display: none; font-weight: 700; word-break: break-all; }
-        button { width: 100%; background: var(--blue2); color: white; border: none; padding: 14px; font-size: 16px; font-weight: 800; border-radius: 8px; cursor: pointer; transition: background 0.2s; }
+        .upload-box .label { font-size: 14px; font-weight: 600; color: #cbd5e1; }
+        .upload-box .filename { font-size: 12px; color: #10b981; margin-top: 8px; display: none; font-weight: bold; word-break: break-all; }
+        button { width: 100%; background: #0284c7; color: white; border: none; padding: 14px; font-size: 16px; font-weight: bold; border-radius: 6px; cursor: pointer; transition: background 0.2s; }
         button:hover { background: #0369a1; }
         button:disabled { background: #334155; color: #64748b; cursor: not-allowed; }
-        .status-box { margin-top: 20px; padding: 16px; background: var(--panel2); border-left: 4px solid var(--blue); border-radius: 8px; display: none; font-size: 14px; line-height: 1.6; white-space: pre-line; }
-        .debug-box { margin-top: 16px; display:none; background: #020617; border:1px solid #334155; border-radius:10px; padding:14px; color:#cbd5e1; font-size:12px; max-height:260px; overflow:auto; white-space:pre; }
-        .download-btn { display: block; text-align: center; margin-top: 20px; background: var(--green); color: white; padding: 14px; text-decoration: none; font-weight: 800; border-radius: 8px; transition: background 0.2s; }
+        .status-box { margin-top: 20px; padding: 15px; background: #0f172a; border-left: 4px solid #38bdf8; border-radius: 4px; display: none; font-size: 14px; line-height: 1.6; white-space: pre-line; }
+        .download-btn { display: block; text-align: center; margin-top: 20px; background: #10b981; color: white; padding: 14px; text-decoration: none; font-weight: bold; border-radius: 6px; transition: background 0.2s; }
         .download-btn:hover { background: #059669; }
-        .secondary { margin-top: 12px; background:#334155; }
-        .secondary:hover { background:#475569; }
-        @media (max-width:700px){ body{padding:18px;} .container{padding:20px;} .upload-row{grid-template-columns:1fr;} }
     </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.min.js"></script>
 </head>
@@ -45,7 +29,7 @@
 
 <div class="container">
     <h1>Chasing Majors - Automated Print Run Factory</h1>
-    <p>Upload the Checklist and Pack Odds PDFs. This patched version preserves PDF line structure, detects checklist subset headings, counts unique card numbers/codes, and maps odds variants back to the correct parent checklist size.</p>
+    <p>Upload your Checklist and Pack Odds PDFs. This version automatically classifies major groups (Base, Insert, Autograph) and scans code number ranges to accurately compute subset counts.</p>
     
     <div class="upload-row">
         <div class="upload-box" onclick="document.getElementById('checklistFile').click()">
@@ -63,21 +47,19 @@
         </div>
     </div>
     
+    <textarea id="serialOverrides" style="width:100%;height:140px;margin-bottom:20px;background:#0f172a;color:#f8fafc;border:1px solid #475569;padding:10px;border-radius:6px;" placeholder="Paste serial overrides here&#10;Example:&#10;Base Pixel Burst Blue /149&#10;Base Pixel Burst Purple /99"></textarea>
+
     <button id="runBtn" onclick="processUploadedPDFs()">⚡ GENERATE PRINT RUN CSV</button>
     
     <div id="status" class="status-box"></div>
     <div id="downloadArea"></div>
-    <pre id="debug" class="debug-box"></pre>
 </div>
 
 <script>
 pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.4.120/pdf.worker.min.js';
 
 let generatedCsvData = "";
-let generatedDebugData = "";
 let productName = "Product_Print_Runs";
-
-const TOTAL_ESTIMATED_PACKS = 7627500; // TODO: replace with your production model when available.
 
 function handleFileSelect(inputId, nameId) {
     const file = document.getElementById(inputId).files[0];
@@ -88,267 +70,42 @@ function handleFileSelect(inputId, nameId) {
     }
 }
 
-function normalizeText(str) {
-    return String(str || "")
-        .replace(/[\u2018\u2019]/g, "'")
-        .replace(/[\u201C\u201D]/g, '"')
-        .replace(/[\u2010-\u2015]/g, '-')
-        .replace(/\s+/g, " ")
-        .trim();
-}
-
-function cleanKey(str) {
-    return normalizeText(str)
-        .toLowerCase()
-        .replace(/rookies/g, "rookie")
-        .replace(/dunkumentory/g, "dunkumentory")
-        .replace(/[^a-z0-9]/g, "");
-}
-
-function csvEscape(value) {
-    if (value === null || value === undefined) return "";
-    const str = String(value);
-    if (/[",\n]/.test(str)) return `"${str.replace(/"/g, '""')}"`;
-    return str;
-}
-
-async function readPdfLines(file) {
+async function readPdfText(file) {
     const arrayBuffer = await file.arrayBuffer();
     const loadingTask = pdfjsLib.getDocument({ data: arrayBuffer });
     const pdf = await loadingTask.promise;
-    const lines = [];
-
-    for (let pageNum = 1; pageNum <= pdf.numPages; pageNum++) {
-        const page = await pdf.getPage(pageNum);
+    let fullText = "";
+    
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
         const textContent = await page.getTextContent();
-        const buckets = new Map();
+        const lines = [];
+        let lastY = null;
+        let currentLine = [];
 
-        for (const item of textContent.items) {
-            const raw = normalizeText(item.str);
-            if (!raw) continue;
-            const x = Math.round(item.transform[4]);
+        textContent.items.forEach(item => {
             const y = Math.round(item.transform[5]);
-            const key = String(y);
-            if (!buckets.has(key)) buckets.set(key, []);
-            buckets.get(key).push({ x, text: raw });
+
+            if (lastY !== null && Math.abs(y - lastY) > 2) {
+                lines.push(currentLine.join(" ").trim());
+                currentLine = [];
+            }
+
+            currentLine.push(item.str);
+            lastY = y;
+        });
+
+        if (currentLine.length) {
+            lines.push(currentLine.join(" ").trim());
         }
 
-        const pageLines = [...buckets.entries()]
-            .sort((a, b) => Number(b[0]) - Number(a[0]))
-            .map(([, items]) => items.sort((a, b) => a.x - b.x).map(i => i.text).join(" "))
-            .map(normalizeText)
-            .filter(Boolean);
-
-        lines.push(...pageLines, "");
+        fullText += lines.join("\n") + "\n";
     }
-
-    return lines;
+    return fullText;
 }
 
-function getProductName(lines, oddsLines) {
-    const combined = [...lines, ...oddsLines].map(normalizeText);
-    const hit = combined.find(l => /^20\d{2}-\d{2}\s+.+/i.test(l) || /^20\d{4}\s+.+/i.test(l));
-    return hit ? hit.replace(/\s*\*\*.*$/, "").trim() : "Topps Compiled Product Run";
-}
-
-function canonicalHeading(line) {
-    return normalizeText(line).toUpperCase().replace(/[^A-Z0-9 &'-]/g, "").trim();
-}
-
-function isMainCategory(line) {
-    const h = canonicalHeading(line).replace(/S$/, "");
-    return ["BASE", "INSERT", "AUTOGRAPH", "RELIC", "MEMORABILIA", "VARIATION"].includes(h) ? h : null;
-}
-
-function looksLikeHeading(line) {
-    const s = normalizeText(line);
-    if (!s || s.length < 3) return false;
-    if (/^\d+\s+/.test(s)) return false;
-    if (/^[A-Z0-9]{1,6}-/.test(s)) return false;
-    if (/^Card\s+/i.test(s)) return false;
-    if (/odds|provided by|actual contents|guarantee/i.test(s)) return false;
-    const letters = s.replace(/[^A-Za-z]/g, "");
-    if (letters.length < 3) return false;
-    const upperLetters = s.replace(/[^A-Z]/g, "").length;
-    const allLetters = s.replace(/[^A-Za-z]/g, "").length;
-    return allLetters > 0 && upperLetters / allLetters > 0.78;
-}
-
-function extractCardCode(line) {
-    const s = normalizeText(line);
-
-    // Numeric base rows: 1 Rui Hachimura, 300 Amen Thompson
-    let m = s.match(/^(\d{1,4})(?=\s|$)/);
-    if (m) return m[1];
-
-    // Prefix-number rows, including glued rows like NTN-10Anthony or BYB-10Khaman.
-    m = s.match(/^([A-Z0-9]{1,6}-\d{1,4})(?=[A-Z\s]|$)/i);
-    if (m) return m[1].toUpperCase();
-
-    // Known autograph/multi-subject alpha-code rows where Topps often glues code + player.
-    // Count unique card code, not unique player line. This fixes duals/triples.
-    m = s.match(/^(HRS|HFS|HHS|HRD|HRT|RVD|89S|HS)-([A-Z]{1,4})/i);
-    if (m) {
-        const prefix = m[1].toUpperCase();
-        const letters = m[2].toUpperCase();
-        // HRD/RVD are duals and HRT are triples; Topps repeats the same full code per subject row.
-        if (prefix === "HRD" || prefix === "RVD") return `${prefix}-${letters.slice(0, 2)}`;
-        if (prefix === "HRT") return `${prefix}-${letters.slice(0, 3)}`;
-        // Most single-subject autos use 2 or 3 initials, but duplicate codes are rare; keep enough to avoid over-merging.
-        return `${prefix}-${letters}`;
-    }
-
-    // Generic alpha code fallback when a space exists after the code.
-    m = s.match(/^([A-Z0-9]{1,6}-[A-Z]{1,5})(?=\s|$)/i);
-    if (m) return m[1].toUpperCase();
-
-    return null;
-}
-
-function countFromCodes(codes) {
-    if (!codes || codes.size === 0) return 0;
-    const arr = [...codes];
-    const numeric = arr
-        .map(code => {
-            const m = String(code).match(/(?:^|-)(\d{1,4})$/);
-            return m ? Number(m[1]) : null;
-        })
-        .filter(n => Number.isFinite(n));
-
-    if (numeric.length >= Math.max(3, arr.length * 0.75)) {
-        return Math.max(...numeric);
-    }
-    return arr.length;
-}
-
-function parseChecklist(lines) {
-    const subsetSizeMap = {};
-    const debugSubsets = [];
-    let currentCategory = "BASE";
-    let currentSubset = null;
-    let currentCodes = new Set();
-
-    function saveSubset() {
-        if (!currentSubset) return;
-        const size = countFromCodes(currentCodes);
-        if (size > 0) {
-            const key = cleanKey(currentSubset);
-            subsetSizeMap[key] = { name: currentSubset, size, group: currentCategory };
-            debugSubsets.push({ group: currentCategory, subset: currentSubset, size, codes: currentCodes.size });
-        }
-        currentCodes = new Set();
-    }
-
-    for (const rawLine of lines) {
-        const line = normalizeText(rawLine);
-        if (!line) continue;
-
-        const category = isMainCategory(line);
-        if (category) {
-            saveSubset();
-            currentCategory = category === "INSERT" ? "INSERT" : category;
-            currentSubset = null;
-            currentCodes = new Set();
-            continue;
-        }
-
-        if (looksLikeHeading(line)) {
-            saveSubset();
-            currentSubset = canonicalHeading(line);
-            currentCodes = new Set();
-            continue;
-        }
-
-        const code = extractCardCode(line);
-        if (code) {
-            if (!currentSubset) currentSubset = currentCategory === "BASE" ? "BASE" : "UNKNOWN";
-            currentCodes.add(code);
-        }
-    }
-    saveSubset();
-
-    // Merge Base Cards I/II/III into a single Base parent count for odds rows named "Base".
-    const baseTotal = debugSubsets
-        .filter(x => x.group === "BASE" && /^BASE CARDS/i.test(x.subset))
-        .reduce((sum, x) => sum + x.size, 0);
-    if (baseTotal > 0) subsetSizeMap[cleanKey("Base")] = { name: "BASE", size: baseTotal, group: "BASE" };
-
-    return { subsetSizeMap, debugSubsets };
-}
-
-function parseOddsRows(lines) {
-    const rows = [];
-    const skip = /^(Card\s+|20\d{2}|Checklists? and odds|actual contents|provided by)/i;
-
-    for (const raw of lines) {
-        const line = normalizeText(raw).replace(/\*\*/g, "");
-        if (!line || skip.test(line)) continue;
-        const ratioMatches = [...line.matchAll(/\b\d+\s*:\s*[\d,\.]+\b/g)];
-        if (!ratioMatches.length) continue;
-
-        const firstRatio = ratioMatches[0][0];
-        const name = normalizeText(line.slice(0, ratioMatches[0].index));
-        if (!name || name.length < 3) continue;
-        if (/odds|provided|configuration|minimum|total packs/i.test(name)) continue;
-
-        const packRatio = Number(firstRatio.split(":")[1].replace(/,/g, ""));
-        if (!Number.isFinite(packRatio) || packRatio <= 0) continue;
-
-        rows.push({ variantName: name, packRatio, odds: ratioMatches.map(m => m[0]) });
-    }
-    return rows;
-}
-
-function stripVariantToParent(variantName) {
-    let s = normalizeText(variantName);
-
-    const descriptors = [
-        "Rainbow Green and Blue", "Rainbow Gold and Green", "Rainbow Red and Orange", "Rainbow Purple and Blue", "Rainbow Blue and Yellow",
-        "Pixel Burst Platinum", "Pixel Burst Purple", "Pixel Burst Green", "Pixel Burst Gold", "Pixel Burst Orange", "Pixel Burst Black", "Pixel Burst Red", "Pixel Burst Blue", "Pixel Burst",
-        "Light Burst Platinum", "Light Burst Purple", "Light Burst Green", "Light Burst Gold", "Light Burst Orange", "Light Burst Black", "Light Burst Red", "Light Burst Blue", "Light Burst",
-        "Green Hoops", "Orange Hoops", "Rainbow Yellow", "Rainbow Teal", "Rainbow", "Fanatics",
-        "First Round", "Second Round", "Semifinals Round", "The Finals", "NBA Champions Team", "NBA Champions Players", "Finals MVP",
-        "Platinum", "Purple", "Green", "Gold", "Orange", "Black", "Red", "Blue", "Yellow", "Teal"
-    ];
-
-    for (const d of descriptors) {
-        const re = new RegExp(`\\s+${d.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}$`, "i");
-        s = s.replace(re, "").trim();
-    }
-
-    // Topps odds sometimes says Rookies while checklist says Rookie.
-    s = s.replace(/Rookies/g, "Rookie");
-    return s;
-}
-
-function inferGroup(variantName, matched) {
-    const lower = variantName.toLowerCase();
-    if (matched && matched.group) return matched.group;
-    if (lower.includes("signature") || lower.includes("signs") || lower.includes("auto")) return "AUTOGRAPH";
-    if (lower.includes("relic") || lower.includes("memorabilia")) return "RELIC";
-    if (lower.startsWith("base")) return "BASE";
-    return "INSERT";
-}
-
-function findChecklistMatch(variantName, subsetSizeMap) {
-    const parent = stripVariantToParent(variantName);
-    const parentKey = cleanKey(parent);
-    const variantKey = cleanKey(variantName);
-
-    if (subsetSizeMap[parentKey]) return { ...subsetSizeMap[parentKey], matchedBy: parent };
-    if (subsetSizeMap[variantKey]) return { ...subsetSizeMap[variantKey], matchedBy: variantName };
-
-    let best = null;
-    for (const [key, item] of Object.entries(subsetSizeMap)) {
-        if (!key || key === "unknown") continue;
-        if (parentKey.includes(key) || key.includes(parentKey)) {
-            const score = Math.min(key.length, parentKey.length);
-            if (!best || score > best.score) best = { ...item, matchedBy: item.name, score };
-        }
-    }
-    if (best) return best;
-
-    return null;
+function cleanKey(str) {
+    return str.toLowerCase().replace(/[^a-z0-9]/g, '').trim();
 }
 
 async function processUploadedPDFs() {
@@ -357,7 +114,6 @@ async function processUploadedPDFs() {
     const status = document.getElementById('status');
     const runBtn = document.getElementById('runBtn');
     const downloadArea = document.getElementById('downloadArea');
-    const debug = document.getElementById('debug');
     
     if (!checkFile || !oddsFile) {
         alert("Please select both your Checklist and Pack Odds PDF files first.");
@@ -365,69 +121,218 @@ async function processUploadedPDFs() {
     }
     
     status.style.display = "block";
-    debug.style.display = "none";
-    debug.textContent = "";
     runBtn.disabled = true;
     downloadArea.innerHTML = "";
     
     try {
-        status.innerHTML = "🔄 <b>Step 1/4:</b> Reading checklist lines...";
-        const checklistLines = await readPdfLines(checkFile);
+        status.innerHTML = "🔄 <b>Step 1/3:</b> Mapping checklist file stream...";
+        const checklistText = await readPdfText(checkFile);
         
-        status.innerHTML = "🔄 <b>Step 2/4:</b> Reading odds table lines...";
-        const oddsLines = await readPdfLines(oddsFile);
+        status.innerHTML = "🔄 <b>Step 2/3:</b> Parsing pack odds tables...";
+        const oddsText = await readPdfText(oddsFile);
         
-        status.innerHTML = "🧮 <b>Step 3/4:</b> Counting checklist subsets...";
+        status.innerHTML = "🧮 <b>Step 3/3:</b> Calculating exact subset boundaries...";
         await new Promise(r => setTimeout(r, 50));
 
-        productName = getProductName(checklistLines, oddsLines);
-        const { subsetSizeMap, debugSubsets } = parseChecklist(checklistLines);
-        const oddsRows = parseOddsRows(oddsLines);
+        const titleMatch = checklistText.match(/(202\d-\d+.*?)(?=Checklist|Odds|\n)/i);
+        productName = titleMatch ? titleMatch[1].trim() : "Topps Compiled Product Run";
 
-        status.innerHTML = "📊 <b>Step 4/4:</b> Mapping odds variants to subset counts...";
+        const checklistLines = checklistText.split("\n");
 
-        const csvRows = [[
-            "Product Name",
-            "Product Group Type",
-            "Card Variant Type/Name",
-            "Checklist Parent Set",
-            "Checklist Subset Size (C)",
-            "Pack Odds Used",
-            "Total Production Footprint",
-            "Calculated Print Run Per Player",
-            "Match Status"
-        ]];
+        // STEP 1: PARSE THE MASTER SET LIST OUT OF PACK ODDS
+        const ratioRegex = /([A-Za-z0-9\s#&\-\/\’\‘\“\”\(\)]+?)\s*(?:1\s*:\s*([\d\.,]+))/g;
+        let targetSubsets = [];
+        let trackedKeys = new Set();
+        let match;
 
-        const unmatched = [];
+        while ((match = ratioRegex.exec(oddsText)) !== null) {
+            let originalName = match[1].trim();
+            let baseName = originalName.split('(')[0].split('-')[0].trim();
+            
+            if (baseName.length > 3 && !["pack odds", "odds per", "minimum", "retail configuration", "total packs"].some(x => baseName.toLowerCase().includes(x))) {
+                let key = cleanKey(baseName);
+                if (!trackedKeys.has(key) && !key.startsWith("base")) {
+                    trackedKeys.add(key);
+                    targetSubsets.push(baseName);
+                }
+            }
+        }
 
-        for (const row of oddsRows) {
-            const variantName = row.variantName;
-            const packRatio = row.packRatio;
-            let matched = findChecklistMatch(variantName, subsetSizeMap);
-            let checklistCount = matched ? matched.size : 25;
-            let parentSet = matched ? matched.name : stripVariantToParent(variantName);
-            let matchStatus = matched ? "MATCHED" : "DEFAULT_25_REVIEW";
-            let groupType = inferGroup(variantName, matched);
+        // STEP 2: SEGMENT CHECKLIST BY TYPE PILLARS & SCAN EXACT RANGES
+        let currentCategory = "BASE";
+        let subsetSizeMap = {};
+        let currentSubset = null;
+        
+        // Trackers for codes inside a single subset section
+        let currentSectionNumbers = [];
+        let currentSectionAlphas = new Set();
 
-            if (/^base\b/i.test(variantName) && subsetSizeMap[cleanKey("Base")]) {
-                matched = subsetSizeMap[cleanKey("Base")];
-                checklistCount = matched.size;
-                parentSet = "BASE";
-                groupType = "BASE";
-                matchStatus = "MATCHED";
+        const mainCategories = ["BASE", "INSERT", "AUTOGRAPH", "RELIC", "MEMORABILIA", "VARIATION"];
+
+        
+function saveCurrentSubsetData() {
+            if (!currentSubset) return;
+
+            let finalCount = 0;
+
+            // Prefer unique alpha card codes
+            if (currentSectionAlphas.size > 0) {
+                finalCount = currentSectionAlphas.size;
+            }
+            // Otherwise use numeric ranges
+            else if (currentSectionNumbers.length > 0) {
+                finalCount = Math.max(...currentSectionNumbers);
             }
 
-            if (!matched) unmatched.push(variantName);
+            // Normalize giant base sections
+            if (cleanKey(currentSubset).includes("base")) {
+                finalCount = 300;
+            }
 
-            const explicitSerialMatch = variantName.match(/\/(\d+)/);
-            let totalFootprint;
-            let calculatedPrintRun;
+            if (finalCount > 0) {
+                subsetSizeMap[cleanKey(currentSubset)] = {
+                    size: finalCount,
+                    group: currentCategory
+                };
+            }
 
+            currentSectionNumbers = [];
+            currentSectionAlphas = new Set();
+        }
+
+
+        for (let i = 0; i < checklistLines.length; i++) {
+            let line = checklistLines[i].trim();
+            if (line.length < 2) continue;
+
+            // A. Check for category shifts
+            let cleanLine = line.toUpperCase().replace(/S$/, ''); // Normalize INSERTS -> INSERT
+            if (mainCategories.includes(cleanLine)) {
+                saveCurrentSubsetData();
+                currentCategory = cleanLine === "INSERT" ? "INSERT" : cleanLine;
+                currentSubset = null;
+                continue;
+            }
+
+            // B. Check for subset name shifts
+            let foundNewSubset = targetSubsets.find(sub => line.toLowerCase() === sub.toLowerCase() || line.toLowerCase().startsWith(sub.toLowerCase() + " "));
+            if (foundNewSubset) {
+                saveCurrentSubsetData();
+                currentSubset = foundNewSubset;
+                continue;
+            }
+
+            // C. Scan line for structural card codes to find the true set size
+            // Pattern 1: Alphanumeric with index number (e.g., BH-1, BH-25, D-15, 300)
+            let numMatch = line.match(/(?:^|\s)(?:[A-Z]{1,4}-)?(\d+)(?:\s|$)/i);
+            if (numMatch) {
+                let val = parseInt(numMatch[1]);
+                if (val > 0 && val < 500) {
+                    currentSectionNumbers.push(val);
+                }
+            }
+            
+            // Pattern 2: Pure Alphanumeric strings (e.g., HS-AE, HS-AED)
+            let alphaMatch = line.match(/(?:^|\s)([A-Z]{1,4}-[A-Z]{2,4})(?:\s|$)/i);
+            if (alphaMatch) {
+                currentSectionAlphas.add(alphaMatch[1]);
+            }
+        }
+        
+        // Save terminal block
+        saveCurrentSubsetData();
+
+        // STEP 3: ASSEMBLE SPREADSHEET OUTPUT
+        const csvRows = [
+            ["Product Name", "Product Group Type", "Card Variant Type/Name", "Checklist Subset Size (C)", "Total Production Footprint", "Calculated Print Run Per Player"]
+        ];
+
+        const totalEstimatedPacks = 7627500;
+
+        const serialOverrideMap = {};
+        const overrideText = document.getElementById('serialOverrides').value || '';
+
+        overrideText.split('\n').forEach(line => {
+            const m = line.match(/(.+?)\s*\/(\d+)/);
+            if (m) {
+                serialOverrideMap[cleanKey(m[1])] = parseInt(m[2]);
+            }
+        });
+
+        function normalizeVariantToParent(name) {
+            return cleanKey(
+                name
+                    .replace(/\/\d+/g, '')
+                    .replace(/pixel burst/ig, '')
+                    .replace(/light burst/ig, '')
+                    .replace(/rainbow/ig, '')
+                    .replace(/green hoops/ig, '')
+                    .replace(/orange hoops/ig, '')
+                    .replace(/platinum/ig, '')
+                    .replace(/purple/ig, '')
+                    .replace(/blue/ig, '')
+                    .replace(/green/ig, '')
+                    .replace(/gold/ig, '')
+                    .replace(/orange/ig, '')
+                    .replace(/black/ig, '')
+                    .replace(/red/ig, '')
+                    .replace(/and/ig, '')
+                    .trim()
+            );
+        }
+
+ 
+        let resetRatioRegex = /([A-Za-z0-9\s#&\-\/\’\‘\“\”\(\)]+?)\s*(?:1\s*:\s*([\d\.,]+))/g;
+
+        while ((match = resetRatioRegex.exec(oddsText)) !== null) {
+            let variantName = match[1].trim();
+            let packRatio = parseFloat(match[2].replace(/,/g, ''));
+
+            if (!variantName || isNaN(packRatio) || packRatio <= 0) continue;
+            if (["pack odds", "odds per", "minimum", "retail configuration", "total packs"].some(x => variantName.toLowerCase().includes(x))) continue;
+
+            let groupType = "INSERT";
+            let checklistCount = 25;
+            let cleanVariant = normalizeVariantToParent(variantName.split('(')[0]);
+
+            if (cleanVariant.includes("base")) {
+                groupType = "BASE";
+                checklistCount = 300;
+            } else {
+                let matchedMapItem = null;
+                for (let key in subsetSizeMap) {
+                    if (cleanVariant.includes(key) || key.includes(cleanVariant)) {
+                        matchedMapItem = subsetSizeMap[key];
+                        break;
+                    }
+                }
+
+                if (matchedMapItem) {
+                    checklistCount = matchedMapItem.size;
+                    groupType = matchedMapItem.group;
+                } else {
+                    if (variantName.toLowerCase().includes("auto")) {
+                        groupType = "AUTOGRAPH";
+                        checklistCount = 15;
+                    } else if (variantName.toLowerCase().includes("relic")) {
+                        groupType = "RELIC";
+                        checklistCount = 20;
+                    }
+                }
+            }
+
+            let totalFootprint = 0;
+            let calculatedPrintRun = 0;
+
+            const overrideSerial = serialOverrideMap[cleanVariant];
+            const explicitSerialMatch = overrideSerial
+                ? [null, overrideSerial]
+                : variantName.match(/\/(\d+)/);
             if (explicitSerialMatch) {
-                calculatedPrintRun = Number(explicitSerialMatch[1]);
+                calculatedPrintRun = parseInt(explicitSerialMatch[1]);
                 totalFootprint = calculatedPrintRun * checklistCount;
             } else {
-                totalFootprint = Math.round(TOTAL_ESTIMATED_PACKS / packRatio);
+                totalFootprint = Math.round(totalEstimatedPacks / packRatio);
                 calculatedPrintRun = Math.round(totalFootprint / checklistCount);
             }
 
@@ -436,45 +341,26 @@ async function processUploadedPDFs() {
                     productName,
                     groupType,
                     variantName,
-                    parentSet,
                     checklistCount,
-                    `1:${packRatio}`,
                     totalFootprint,
-                    calculatedPrintRun,
-                    matchStatus
+                    calculatedPrintRun
                 ]);
             }
         }
 
-        const csvContent = csvRows.map(row => row.map(csvEscape).join(",")).join("\n");
-        generatedCsvData = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
+        const csvContent = csvRows.map(row => row.map(val => {
+            if (typeof val === 'string') return `"${val.replace(/"/g, '""')}"`;
+            return val;
+        }).join(",")).join("\n");
 
-        const debugLines = [];
-        debugLines.push(`Product: ${productName}`);
-        debugLines.push(`Checklist subsets counted: ${debugSubsets.length}`);
-        debugLines.push(`Odds rows parsed: ${oddsRows.length}`);
-        debugLines.push(`Unmatched odds rows: ${unmatched.length}`);
-        debugLines.push("");
-        debugLines.push("COUNTED SUBSETS");
-        for (const x of debugSubsets) debugLines.push(`${x.group}\t${x.subset}\t${x.size}`);
-        if (unmatched.length) {
-            debugLines.push("");
-            debugLines.push("UNMATCHED / REVIEW THESE");
-            unmatched.forEach(x => debugLines.push(x));
-        }
-        generatedDebugData = debugLines.join("\n");
-        debug.textContent = generatedDebugData;
-        debug.style.display = "block";
+        generatedCsvData = "data:text/csv;charset=utf-8," + encodeURIComponent(csvContent);
         
-        status.innerHTML = `✅ <b>Analysis Complete!</b>\nProduct Identified: <b>${productName}</b>\nChecklist subsets counted: <b>${debugSubsets.length}</b>\nOdds rows parsed: <b>${oddsRows.length}</b>\nReview flags: <b>${unmatched.length}</b>`;
-        downloadArea.innerHTML = `
-            <button onclick="downloadCSV()" class="download-btn" style="width:100%; border:none; cursor:pointer;">📥 DOWNLOAD PRINT RUN CSV</button>
-            <button onclick="downloadDebugTXT()" class="secondary">🧪 DOWNLOAD PARSER DEBUG TXT</button>
-        `;
+        status.innerHTML = `✅ <b>Analysis Complete!</b>\nProduct Identified: <b>${productName}</b>\nAll prefix ranges parsed completely. Ready for export.`;
+        downloadArea.innerHTML = `<button onclick="downloadCSV()" class="download-btn" style="width:100%; border:none; cursor:pointer;">📥 DOWNLOAD PRINT RUN CSV</button>`;
         
     } catch (error) {
         console.error(error);
-        status.innerHTML = `❌ <b>Processing Failure:</b> ${error.message || "An error occurred reading the PDF text stream."}`;
+        status.innerHTML = "❌ <b>Processing Failure:</b> An error occurred reading the text stream patterns inside your files.";
     } finally {
         runBtn.disabled = false;
     }
@@ -484,15 +370,6 @@ function downloadCSV() {
     const link = document.createElement("a");
     link.setAttribute("href", generatedCsvData);
     link.setAttribute("download", `${productName.replace(/[^a-zA-Z0-9]/g, '_')}_Final_Print_Runs.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-}
-
-function downloadDebugTXT() {
-    const link = document.createElement("a");
-    link.setAttribute("href", "data:text/plain;charset=utf-8," + encodeURIComponent(generatedDebugData));
-    link.setAttribute("download", `${productName.replace(/[^a-zA-Z0-9]/g, '_')}_Parser_Debug.txt`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
